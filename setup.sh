@@ -47,8 +47,8 @@ pip install --quiet --no-cache-dir -r "$(dirname "$0")/requirements.txt"
 ok "All packages installed into .venv"
 
 # ── 4. .env setup ─────────────────────────────────────────────────────────
-ENV_FILE="$(dirname "$0")/.env"
-EXAMPLE_FILE="$(dirname "$0")/.env.example"
+ENV_FILE="$(cd "$(dirname "$0")" && pwd)/.env"
+EXAMPLE_FILE="$(cd "$(dirname "$0")" && pwd)/.env.example"
 
 if [[ -f "$ENV_FILE" ]]; then
     ok ".env already exists — skipping key entry"
@@ -65,12 +65,28 @@ else
     read -rp "  Default category         [All]:      " CATEGORY; CATEGORY="${CATEGORY:-All}"
     read -rp "  Max results per fetch    [25]:       " MAX_R;    MAX_R="${MAX_R:-25}"
 
-    sed -i "s|^YOUTUBE_API_KEY=.*|YOUTUBE_API_KEY=${YT_KEY}|"         "$ENV_FILE"
-    sed -i "s|^YOUTUBE_CHANNEL_ID=.*|YOUTUBE_CHANNEL_ID=${CH_ID}|"   "$ENV_FILE"
-    sed -i "s|^ANTHROPIC_API_KEY=.*|ANTHROPIC_API_KEY=${CLAUDE_KEY}|" "$ENV_FILE"
-    sed -i "s|^DEFAULT_REGION=.*|DEFAULT_REGION=${REGION}|"           "$ENV_FILE"
-    sed -i "s|^DEFAULT_CATEGORY=.*|DEFAULT_CATEGORY=${CATEGORY}|"     "$ENV_FILE"
-    sed -i "s|^MAX_RESULTS=.*|MAX_RESULTS=${MAX_R}|"                  "$ENV_FILE"
+    # Write .env via Python — portable across macOS (BSD sed) and Linux (GNU sed)
+    "$PY" - "$ENV_FILE" "$YT_KEY" "$CH_ID" "$CLAUDE_KEY" "$REGION" "$CATEGORY" "$MAX_R" <<'PYEOF'
+import sys
+env_file, yt_key, ch_id, claude_key, region, category, max_r = sys.argv[1:8]
+vals = {
+    "YOUTUBE_API_KEY":    yt_key,
+    "YOUTUBE_CHANNEL_ID": ch_id,
+    "ANTHROPIC_API_KEY":  claude_key,
+    "DEFAULT_REGION":     region,
+    "DEFAULT_CATEGORY":   category,
+    "MAX_RESULTS":        max_r,
+}
+lines = open(env_file).readlines()
+out = []
+for line in lines:
+    key = line.split("=")[0].strip()
+    if key in vals:
+        out.append(f"{key}={vals[key]}\n")
+    else:
+        out.append(line)
+open(env_file, "w").writelines(out)
+PYEOF
     ok ".env saved"
 
     # Validate YouTube key
