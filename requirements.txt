@@ -5,4 +5,11 @@ matplotlib
 pytz
 google-api-python-client
 google-auth
-anthropic
+google-auth-oauthlib
+anthropicmoviepy
+Pillow
+gTTS
+edge-tts
+requests
+APScheduler
+pytrends
