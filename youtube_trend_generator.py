@@ -4,12 +4,31 @@ Step-by-step tool to discover trending content and generate video ideas
 based on your own YouTube channel using the YouTube Data API v3.
 """
 
+import os
 import streamlit as st
 import pandas as pd
 import re
 import json
 from collections import Counter
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+# ── Load .env automatically (before anything else) ──────────────────────────
+def _load_dotenv() -> None:
+    env_path = Path(__file__).parent / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and value and key not in os.environ:
+            os.environ[key] = value
+
+_load_dotenv()
 
 # ── Optional deps (installed via requirements.txt) ──────────────────────────
 try:
@@ -24,6 +43,14 @@ try:
     CLAUDE_AVAILABLE = True
 except ImportError:
     CLAUDE_AVAILABLE = False
+
+# ── Env-sourced defaults (pre-fill sidebar without user typing) ──────────────
+_ENV_YT_KEY      = os.environ.get("YOUTUBE_API_KEY", "")
+_ENV_CHANNEL_ID  = os.environ.get("YOUTUBE_CHANNEL_ID", "")
+_ENV_CLAUDE_KEY  = os.environ.get("ANTHROPIC_API_KEY", "")
+_ENV_REGION      = os.environ.get("DEFAULT_REGION", "United States")
+_ENV_CATEGORY    = os.environ.get("DEFAULT_CATEGORY", "All")
+_ENV_MAX_RESULTS = int(os.environ.get("MAX_RESULTS", "25"))
 
 # ── Constants ────────────────────────────────────────────────────────────────
 CATEGORIES = {
@@ -287,35 +314,59 @@ def main():
         st.markdown("---")
 
         st.subheader("Step 1 — API Credentials")
+
+        # Show a green badge when key is sourced from .env
+        _yt_hint = "✅ Loaded from .env" if _ENV_YT_KEY else "AIza..."
         yt_api_key = st.text_input(
             "YouTube Data API v3 Key",
+            value=_ENV_YT_KEY,
             type="password",
-            placeholder="AIza...",
+            placeholder=_yt_hint,
             help="Get yours free at console.cloud.google.com → Enable YouTube Data API v3",
         )
+
+        _ch_hint = "✅ Loaded from .env" if _ENV_CHANNEL_ID else "UCxxxxxxxxxxxxxxxxxx"
         channel_id = st.text_input(
             "Your YouTube Channel ID",
-            placeholder="UCxxxxxxxxxxxxxxxxxx",
+            value=_ENV_CHANNEL_ID,
+            placeholder=_ch_hint,
             help="Found at: YouTube Studio → Customization → Basic info → Channel URL",
         )
 
         st.subheader("Step 2 — Trend Settings")
-        region_name = st.selectbox("Region", list(REGIONS.keys()), index=0)
+
+        _region_default = next(
+            (name for name, code in REGIONS.items() if code == _ENV_REGION),
+            list(REGIONS.keys())[0],
+        )
+        region_name = st.selectbox(
+            "Region", list(REGIONS.keys()),
+            index=list(REGIONS.keys()).index(_region_default),
+        )
         region_code = REGIONS[region_name]
 
-        category_name = st.selectbox("Category", list(CATEGORIES.keys()), index=0)
+        _cat_default = _ENV_CATEGORY if _ENV_CATEGORY in CATEGORIES else "All"
+        category_name = st.selectbox(
+            "Category", list(CATEGORIES.keys()),
+            index=list(CATEGORIES.keys()).index(_cat_default),
+        )
         category_id = CATEGORIES[category_name]
 
-        max_results = st.slider("Videos to analyse", 10, 50, 25, 5)
+        max_results = st.slider("Videos to analyse", 10, 50, _ENV_MAX_RESULTS, 5)
 
         st.markdown("---")
         st.subheader("Step 3 — AI Script (Optional)")
+        _claude_hint = "✅ Loaded from .env" if _ENV_CLAUDE_KEY else "sk-ant-..."
         claude_api_key = st.text_input(
             "Anthropic Claude API Key",
+            value=_ENV_CLAUDE_KEY,
             type="password",
-            placeholder="sk-ant-...",
+            placeholder=_claude_hint,
             help="Optional. Enables AI-powered script generation. Get at console.anthropic.com",
         )
+
+        if _ENV_YT_KEY and _ENV_CHANNEL_ID:
+            st.success("Credentials loaded from .env — ready to fetch!")
 
         st.markdown("---")
         fetch_btn = st.button("Fetch Trending Videos", type="primary", use_container_width=True)
