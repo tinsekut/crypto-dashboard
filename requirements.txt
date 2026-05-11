@@ -5,4 +5,4 @@ matplotlib
 pytz
 google-api-python-client
 google-auth
-anthropicool
+anthropic
