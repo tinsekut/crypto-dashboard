@@ -40,10 +40,10 @@ ok "Virtual environment activated"
 
 # ── 3. Install dependencies ────────────────────────────────────────────────
 info "Upgrading pip …"
-pip install --quiet --upgrade pip
+pip install --quiet --no-cache-dir --upgrade pip
 
 info "Installing packages from requirements.txt …"
-pip install --quiet -r "$(dirname "$0")/requirements.txt"
+pip install --quiet --no-cache-dir -r "$(dirname "$0")/requirements.txt"
 ok "All packages installed into .venv"
 
 # ── 4. .env setup ─────────────────────────────────────────────────────────
