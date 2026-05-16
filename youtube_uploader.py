@@ -1,9 +1,9 @@
 """
-youtube_uploader.py
-Handles OAuth 2.0 authentication and resumable video upload to YouTube.
+youtube_uploader.py — OAuth 2.0 authentication + resumable YouTube upload.
 
-First run: opens browser for one-time consent → saves token.json
-All subsequent runs: uses token.json (auto-refreshes silently)
+Scopes include youtube.force-ssl for thumbnail upload and CTR readback.
+First run: browser consent → token.json saved.
+All subsequent runs: token.json auto-refreshes silently.
 """
 
 import logging
@@ -21,11 +21,12 @@ log = logging.getLogger(__name__)
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
     "https://www.googleapis.com/auth/youtube",
+    "https://www.googleapis.com/auth/youtube.force-ssl",  # thumbnail upload + CTR readback
 ]
 
-_DIR            = Path(__file__).parent
-CLIENT_SECRETS  = _DIR / "client_secrets.json"
-TOKEN_FILE      = _DIR / "token.json"
+_DIR           = Path(__file__).parent
+CLIENT_SECRETS = _DIR / "client_secrets.json"
+TOKEN_FILE     = _DIR / "token.json"
 
 
 def get_authenticated_service():
@@ -35,10 +36,12 @@ def get_authenticated_service():
     Setup (one-time):
       1. Google Cloud Console → APIs & Services → Credentials
       2. Create OAuth 2.0 Client ID → Desktop app → Download JSON
-      3. Rename the downloaded file to client_secrets.json
-      4. Place it in the project root (same folder as this file)
-      5. Run pipeline.py once — browser opens for consent
-      6. token.json is saved; future runs are fully automatic
+      3. Rename to client_secrets.json, place in project root
+      4. Run pipeline.py once — browser opens for consent
+      5. token.json is saved; future runs are fully automatic
+
+    Note: adding youtube.force-ssl scope requires re-authentication on
+    first run after upgrading from the old two-scope token.
     """
     if not CLIENT_SECRETS.exists():
         raise FileNotFoundError(
@@ -59,11 +62,18 @@ def get_authenticated_service():
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             log.info("Refreshing access token…")
-            creds.refresh(Request())
-        else:
+            try:
+                creds.refresh(Request())
+            except Exception:
+                # Scope change or revocation — force re-auth
+                log.info("Token refresh failed (scope change?) — re-authenticating…")
+                creds = None
+
+        if not creds:
             log.info("Opening browser for YouTube OAuth consent…")
             flow  = InstalledAppFlow.from_client_secrets_file(str(CLIENT_SECRETS), SCOPES)
             creds = flow.run_local_server(port=0, prompt="consent")
+
         TOKEN_FILE.write_text(creds.to_json())
         log.info(f"Token saved → {TOKEN_FILE}")
 
@@ -78,10 +88,12 @@ def upload_video(
     tags: list[str],
     category_id: str = "22",
     privacy: str = "private",
+    thumbnail_path: str | None = None,
 ) -> str:
     """
-    Upload an MP4 to YouTube using resumable upload (handles large files).
+    Upload an MP4 to YouTube using resumable upload.
     Returns the video ID on success.
+    Optionally uploads a thumbnail if thumbnail_path is provided.
     privacy: "private" | "unlisted" | "public"
     """
     body = {
@@ -125,6 +137,38 @@ def upload_video(
             raise
 
     video_id = response["id"]
-    url = f"https://www.youtube.com/watch?v={video_id}"
-    log.info(f"Upload complete → {url}")
+    log.info(f"Upload complete → https://www.youtube.com/watch?v={video_id}")
+
+    # Thumbnail upload (requires youtube.force-ssl scope + verified channel)
+    if thumbnail_path:
+        upload_thumbnail(youtube, video_id, thumbnail_path)
+
     return video_id
+
+
+def upload_thumbnail(youtube, video_id: str, thumbnail_path: str) -> bool:
+    """
+    Upload a custom thumbnail for the given video.
+    Requires: channel phone-verification AND youtube.force-ssl scope.
+    Returns True on success, False on 403 (unverified channel — handled gracefully).
+    """
+    try:
+        media = MediaFileUpload(thumbnail_path, mimetype="image/jpeg", resumable=False)
+        youtube.thumbnails().set(
+            videoId=video_id,
+            media_body=media,
+        ).execute()
+        log.info(f"  Thumbnail uploaded for video {video_id}")
+        return True
+    except HttpError as e:
+        if e.resp.status == 403:
+            log.warning(
+                f"  Thumbnail upload 403 — channel not verified yet. "
+                "Verify at https://www.youtube.com/verify then re-run."
+            )
+        else:
+            log.warning(f"  Thumbnail upload failed (HTTP {e.resp.status}): {e.reason}")
+        return False
+    except Exception as e:
+        log.warning(f"  Thumbnail upload error: {e}")
+        return False

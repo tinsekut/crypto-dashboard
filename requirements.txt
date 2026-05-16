@@ -6,9 +6,9 @@ pytz
 google-api-python-client
 google-auth
 google-auth-oauthlib
-anthropic
-moviepy
-Pillow
+anthropic>=0.40.0
+moviepy==1.0.3
+Pillow>=10.0.0
 gTTS
 edge-tts
 requests
