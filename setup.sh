@@ -40,11 +40,30 @@ ok "Virtual environment activated"
 
 # ── 3. Install dependencies ────────────────────────────────────────────────
 info "Upgrading pip …"
-pip install --quiet --no-cache-dir --upgrade pip
+python3 -m pip install --quiet --no-cache-dir --upgrade pip
 
 info "Installing packages from requirements.txt …"
-pip install --quiet --no-cache-dir -r "$(dirname "$0")/requirements.txt"
+python3 -m pip install --quiet --no-cache-dir -r "$(dirname "$0")/requirements.txt"
 ok "All packages installed into .venv"
+
+# ── OCR quality-gate dependencies (optional but strongly recommended) ──────
+info "Installing OCR quality-gate dependencies (pytesseract + easyocr) …"
+python3 -m pip install --quiet --no-cache-dir pytesseract easyocr || warn "OCR install failed — quality gate OCR will be skipped (non-fatal)"
+
+# Install Tesseract system binary (macOS via Homebrew, Linux via apt)
+if command -v brew &>/dev/null; then
+    if brew list tesseract &>/dev/null 2>&1; then
+        ok "Tesseract already installed via Homebrew"
+    else
+        info "Installing Tesseract via Homebrew …"
+        brew install tesseract --quiet || warn "Tesseract brew install failed — pytesseract will fall back to easyocr"
+    fi
+elif command -v apt-get &>/dev/null; then
+    info "Installing Tesseract via apt …"
+    sudo apt-get install -y tesseract-ocr --quiet || warn "Tesseract apt install failed"
+else
+    warn "Could not detect package manager — install Tesseract manually: https://tesseract-ocr.github.io/tessdoc/Installation.html"
+fi
 
 # ── 4. .env setup ─────────────────────────────────────────────────────────
 ENV_FILE="$(cd "$(dirname "$0")" && pwd)/.env"

@@ -25,3 +25,9 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# Node / Remotion renderer
+node_modules/
+remotion/node_modules/
+remotion/out/
+remotion/public/jobs/

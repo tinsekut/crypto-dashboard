@@ -47,7 +47,7 @@ ok ".env loaded"
 
 # ── 3. Install / update dependencies silently ─────────────────────────────
 info "Checking dependencies…"
-pip install --quiet --no-cache-dir -r "$DIR/requirements.txt"
+python3 -m pip install --quiet --no-cache-dir -r "$DIR/requirements.txt"
 ok "Dependencies ready"
 
 # ── 4. ffmpeg check ────────────────────────────────────────────────────────
@@ -66,12 +66,40 @@ else
     ok "ffmpeg found"
 fi
 
+# ── 4b. Optional Remotion renderer setup ─────────────────────────────────
+RENDERER="${VIDEO_RENDERER:-moviepy}"
+if [[ "$RENDERER" == "remotion" || "$RENDERER" == "auto" || "$RENDERER" == "best" ]]; then
+    if [[ -f "$DIR/remotion/package.json" ]]; then
+        if ! command -v npm &>/dev/null && ! command -v pnpm &>/dev/null && ! command -v yarn &>/dev/null; then
+            warn "Remotion requested but npm/pnpm/yarn is not available."
+            warn "Falling back to MoviePy for this run. Install npm with: brew install node"
+            export VIDEO_RENDERER="moviepy"
+        elif [[ ! -d "$DIR/remotion/node_modules" ]]; then
+            info "Installing Remotion dependencies…"
+            if command -v npm &>/dev/null; then
+                npm --prefix "$DIR/remotion" install --silent
+            elif command -v pnpm &>/dev/null; then
+                pnpm --dir "$DIR/remotion" install --silent
+            else
+                yarn --cwd "$DIR/remotion" install --silent
+            fi
+            ok "Remotion dependencies ready"
+        else
+            ok "Remotion dependencies ready"
+        fi
+    else
+        warn "VIDEO_RENDERER=$RENDERER but remotion/package.json was not found — falling back to MoviePy"
+        export VIDEO_RENDERER="moviepy"
+    fi
+fi
+
 # ── 5. Required credentials check ─────────────────────────────────────────
 ABORT=0
 
-if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
-    fail "ANTHROPIC_API_KEY missing in .env"
-    echo "      Get one at: https://console.anthropic.com"
+if [[ -z "${OPENAI_API_KEY:-}" && -z "${ANTHROPIC_API_KEY:-}" ]]; then
+    fail "AI provider key missing in .env"
+    echo "      Add OPENAI_API_KEY from https://platform.openai.com/api-keys"
+    echo "      or ANTHROPIC_API_KEY from https://console.anthropic.com"
     ABORT=1
 fi
 
@@ -115,11 +143,11 @@ if [[ "${1:-}" == "--schedule" ]]; then
     echo ""
     echo "  Leave this terminal open. Press Ctrl+C to stop."
     echo ""
-    python pipeline.py --schedule
+    python3 pipeline.py --schedule
 else
     echo ""
     info "Privacy setting: ${YOUTUBE_PRIVACY:-private}"
     echo "  (Change to 'public' in .env to publish immediately)"
     echo ""
-    python pipeline.py
+    python3 pipeline.py
 fi

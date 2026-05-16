@@ -39,6 +39,6 @@ info "Starting app at http://localhost:8501 …"
 echo -e "${CYAN}  Press Ctrl+C to stop${NC}"
 echo ""
 
-exec streamlit run "$APP" \
+exec python3 -m streamlit run "$APP" \
     --server.enableCORS false \
     --server.enableXsrfProtection false
