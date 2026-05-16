@@ -22,6 +22,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import requests
+from pathlib import Path
 
 log = logging.getLogger(__name__)
 
@@ -380,16 +381,33 @@ def make_video_from_script(script: dict, output_path: str) -> None:
 
         log.info(f"  [{i+1}/{len(sections)}] {name} ({emotion})")
 
+        # ── B-roll video (Kling AI / Pexels video / still image) ────────────
+        from broll_provider import get_broll_clip
+        broll_path = get_broll_clip(keyword, narration, 30.0, str(tmp), i)
+
         # ── Background + slide ───────────────────────────────────────────────
-        bg    = _fetch_pexels_image(keyword) or _gradient_bg(pal["bg1"], pal["bg2"])
+        if broll_path:
+            # Extract first frame of B-roll video as slide background
+            try:
+                from moviepy.editor import VideoFileClip as _VFC
+                _vc   = _VFC(broll_path)
+                _frame = _vc.get_frame(0)
+                _vc.close()
+                bg = Image.fromarray(_frame).resize((LONG_W, LONG_H), Image.LANCZOS)
+            except Exception:
+                bg = _fetch_pexels_image(keyword) or _gradient_bg(pal["bg1"], pal["bg2"])
+        else:
+            bg = _fetch_pexels_image(keyword) or _gradient_bg(pal["bg1"], pal["bg2"])
+
         bg    = _add_vignette(bg, pal["vignette"])
         slide = _create_slide(bg, name, narration, lower, emotion, rewatch_clue)
         slide_path = str(tmp / f"slide_{i:02d}.png")
         slide.save(slide_path)
 
-        # ── TTS audio ────────────────────────────────────────────────────────
-        audio_path = str(tmp / f"audio_{i:02d}.mp3")
-        has_audio  = _tts(narration, audio_path)
+        # ── TTS audio — reuse pre-generated file if available ────────────────
+        pre_audio  = sec.get("_pre_audio_path", "")
+        audio_path = pre_audio if pre_audio and Path(pre_audio).exists() else str(tmp / f"audio_{i:02d}.mp3")
+        has_audio  = Path(audio_path).exists() or _tts(narration, audio_path)
 
         if has_audio:
             audio_clip = AudioFileClip(audio_path)

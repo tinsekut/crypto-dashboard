@@ -127,15 +127,25 @@ if [[ "${1:-}" == "--schedule" ]]; then
     HOUR="${SCHEDULE_HOUR:-9}"
     echo ""
     info "Scheduler mode: pipeline runs daily at ${HOUR}:00 UTC"
-    info "Privacy: ${YOUTUBE_PRIVACY:-private}"
+    info "Privacy    : ${YOUTUBE_PRIVACY:-private}"
+    info "Shorts     : ${SHORTS_MODE:-also}"
+    info "Thumbnails : A/B=${AB_THUMBNAILS:-1}  Readback=${ANALYTICS_READBACK_HOURS:-48}h"
+    info "B-roll     : ${BROLL_MODE:-image}"
+    info "3D Scenes  : ${USE_3D_SCENES:-0}"
     echo ""
     echo "  Leave this terminal open. Press Ctrl+C to stop."
     echo ""
     python pipeline.py --schedule
+elif [[ "${1:-}" == "--ab-report" ]]; then
+    python pipeline.py --ab-report
 else
     echo ""
-    info "Privacy setting: ${YOUTUBE_PRIVACY:-private}"
-    echo "  (Change to 'public' in .env to publish immediately)"
+    info "Privacy    : ${YOUTUBE_PRIVACY:-private}"
+    info "Shorts     : ${SHORTS_MODE:-also}"
+    info "Thumbnails : A/B=${AB_THUMBNAILS:-1}  Readback=${ANALYTICS_READBACK_HOURS:-48}h"
+    info "B-roll     : ${BROLL_MODE:-image}"
+    info "3D Scenes  : ${USE_3D_SCENES:-0}"
+    echo "  (Set YOUTUBE_PRIVACY=public in .env to publish immediately)"
     echo ""
     python pipeline.py
 fi

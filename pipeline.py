@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """
-pipeline.py — YouTube Auto-Upload Pipeline (Session 7 — Monetization Maximisation)
+pipeline.py — YouTube Auto-Upload Pipeline (Session 8 — CTR & Discoverability)
 
-Psychological retention architecture (10 sections), quality gate (target 88+/100),
-script rewrite loop, Shorts generation, and automated upload for both formats.
+Builds on Session 7 psychological architecture and adds:
+  • Thumbnail A/B generator (Pillow-rendered, auto-uploaded)
+  • TTS-accurate chapter timestamps (real audio durations, not word estimates)
+  • CTR readback + A/B winner selection (YouTube Analytics API, 48h)
+  • Remotion 3D renderer bridge (USE_3D_SCENES=1)
+  • Kling AI / Pexels Video B-roll (BROLL_MODE=ai|video|image)
 
 Usage:
   python pipeline.py              # run once right now
   python pipeline.py --schedule   # run daily at SCHEDULE_HOUR (set in .env)
+  python pipeline.py --ab-report  # print A/B test results and exit
 """
 
 import os
@@ -39,8 +44,11 @@ import anthropic
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from video_maker      import make_video_from_script, make_shorts_from_script
-from youtube_uploader import get_authenticated_service, upload_video, upload_thumbnail
+from video_maker         import make_video_from_script, make_shorts_from_script
+from youtube_uploader    import get_authenticated_service, upload_video, upload_thumbnail
+from thumbnail_generator import generate_thumbnails
+from ctr_manager         import register_ab_test, check_and_resolve_ab_tests, print_ab_summary
+from remotion_bridge     import render_video
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 _LOG_FILE = Path(__file__).parent / "pipeline.log"
@@ -66,6 +74,9 @@ QUALITY_THRESHOLD    = int(os.environ.get("QUALITY_GATE_THRESHOLD", "88"))
 SCRIPT_REWRITE_PASSES = int(os.environ.get("SCRIPT_REWRITE_PASSES", "2"))
 SHORTS_MODE          = os.environ.get("SHORTS_MODE", "also")   # off | also | only
 QUALITY_GATE_MODE    = os.environ.get("QUALITY_GATE_MODE", "block")  # block | warn
+USE_3D_SCENES        = os.environ.get("USE_3D_SCENES", "0") == "1"
+BROLL_MODE           = os.environ.get("BROLL_MODE", "image")          # image | video | ai
+AB_THUMBNAILS        = os.environ.get("AB_THUMBNAILS", "1") == "1"    # enable A/B thumbnail test
 
 
 # ── JSON resilience ───────────────────────────────────────────────────────────
@@ -192,17 +203,71 @@ def fetch_trending(n: int = 25) -> list[dict]:
 
 # ── Chapter timestamp builder ─────────────────────────────────────────────────
 
-def _build_chapter_timestamps(sections: list[dict]) -> str:
-    """Estimate chapter start times from narration word counts at 150 wpm."""
-    WPM = 150
+def _build_chapter_timestamps(sections: list[dict], durations: list[float] | None = None) -> str:
+    """
+    Build chapter timestamps from real TTS durations when available,
+    falling back to 150 wpm word-count estimate.
+    durations: list of seconds per section (from actual audio files).
+    """
+    WPM     = 150
     elapsed = 0.0
-    lines = []
-    for sec in sections:
-        words   = len((sec.get("narration") or "").split())
+    lines   = []
+    for i, sec in enumerate(sections):
         mins, s = divmod(int(elapsed), 60)
         lines.append(f"{mins}:{s:02d} {sec.get('name', '')}")
-        elapsed += (words / WPM) * 60
+        if durations and i < len(durations):
+            elapsed += durations[i]
+        else:
+            words    = len((sec.get("narration") or "").split())
+            elapsed += (words / WPM) * 60
     return "\n".join(lines)
+
+
+def _measure_tts_durations(sections: list[dict], tmp_dir: str) -> list[float]:
+    """
+    Generate TTS audio for every section narration and return real durations.
+    Saves audio files to tmp_dir so video_maker.py can reuse them (passed via script).
+    """
+    import asyncio
+    import tempfile
+    from pathlib import Path as _Path
+
+    async def _edge(text: str, path: str, voice: str) -> None:
+        import edge_tts
+        await edge_tts.Communicate(text, voice).save(path)
+
+    voice   = os.environ.get("TTS_VOICE", "en-US-JennyNeural")
+    durations = []
+    audio_paths = []
+
+    for i, sec in enumerate(sections):
+        narration  = (sec.get("narration") or "").strip()
+        audio_path = str(_Path(tmp_dir) / f"pre_audio_{i:02d}.mp3")
+
+        try:
+            import edge_tts  # noqa: F401
+            loop = asyncio.new_event_loop()
+            try:
+                loop.run_until_complete(_edge(narration, audio_path, voice))
+            finally:
+                loop.close()
+            from moviepy.editor import AudioFileClip
+            clip = AudioFileClip(audio_path)
+            dur  = clip.duration
+            clip.close()
+        except Exception:
+            dur = max(5.0, len(narration.split()) / 2.5)
+            audio_path = ""
+
+        durations.append(dur)
+        audio_paths.append(audio_path)
+        log.info(f"  TTS S{i+1} '{sec.get('name','')}': {dur:.1f}s")
+
+    # Stash audio paths in each section so video_maker can reuse them
+    for i, sec in enumerate(sections):
+        sec["_pre_audio_path"] = audio_paths[i]
+
+    return durations
 
 
 def _inject_timestamps(script: dict) -> dict:
@@ -654,7 +719,7 @@ def generate_shorts_script(full_script: dict) -> dict:
 
 def run_pipeline() -> None:
     log.info("=" * 60)
-    log.info("Pipeline started — Session 7 Monetisation Maximisation")
+    log.info("Pipeline started — Session 8 CTR & Discoverability")
     log.info("=" * 60)
 
     _secrets = Path(__file__).parent / "client_secrets.json"
@@ -674,8 +739,17 @@ def run_pipeline() -> None:
     out_dir.mkdir(exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+    # ── 0: Resolve any pending A/B tests from previous runs ─────────────────
+    log.info("Step 0/7 — Checking previous A/B thumbnail test results…")
+    try:
+        youtube_early = get_authenticated_service()
+        check_and_resolve_ab_tests(youtube_early)
+    except Exception as e:
+        log.warning(f"  A/B check skipped: {e}")
+        youtube_early = None
+
     # ── 1: Trending ──────────────────────────────────────────────────────────
-    log.info("Step 1/5 — Fetching trending videos…")
+    log.info("Step 1/7 — Fetching trending videos…")
     try:
         trending = fetch_trending(MAX_RESULTS)
         log.info(f"  Got {len(trending)} trending topics")
@@ -684,8 +758,9 @@ def run_pipeline() -> None:
         return
 
     # ── 2: Script + quality gate loop ───────────────────────────────────────
-    log.info("Step 2/5 — Generating 10-section psychological script…")
-    script = None
+    log.info("Step 2/7 — Generating 10-section psychological script…")
+    script   = None
+    failures = []
     for attempt in range(1 + SCRIPT_REWRITE_PASSES):
         try:
             if attempt == 0:
@@ -699,76 +774,115 @@ def run_pipeline() -> None:
                 return
             continue
 
+        # Inject placeholder timestamps first (replaced with real ones after TTS)
         script = _inject_timestamps(script)
         score, failures = score_script(script)
         log.info(f"  Quality score: {score}/100  (threshold: {QUALITY_THRESHOLD})")
-
-        if failures:
-            for f in failures:
-                log.info(f"    ✗ {f}")
+        for f in failures:
+            log.info(f"    ✗ {f}")
 
         if score >= QUALITY_THRESHOLD:
             log.info(f"  ✅ Quality gate passed ({score}/100)")
             break
-
         if QUALITY_GATE_MODE == "warn":
             log.warning(f"  ⚠ Quality gate NOT passed ({score}/100) — continuing (warn mode)")
             break
-
         if attempt < SCRIPT_REWRITE_PASSES:
-            log.info(f"  Quality gate NOT passed — requesting rewrite…")
+            log.info("  Quality gate NOT passed — requesting rewrite…")
         else:
-            log.warning(f"  Quality gate NOT passed after all rewrite passes. Proceeding with best script ({score}/100).")
+            log.warning(f"  Proceeding with best script ({score}/100) after all rewrite passes.")
 
     script_path = out_dir / f"script_{ts}.json"
     script_path.write_text(json.dumps(script, indent=2, ensure_ascii=False))
-    log.info(f"  Title: {script['video_title']}")
-    log.info(f"  Script saved → {script_path}")
+    log.info(f"  Title : {script['video_title']}")
+    log.info(f"  Saved → {script_path}")
 
-    # ── 3: Long-form video ───────────────────────────────────────────────────
+    # ── 3: TTS-accurate chapter timestamps ───────────────────────────────────
+    import tempfile
+    tts_tmp = tempfile.mkdtemp(prefix="ytgen_tts_")
+    video_path   = None
+    shorts_path  = None
+    shorts_script = None
+
     if SHORTS_MODE != "only":
-        log.info("Step 3/5 — Rendering long-form video…")
+        log.info("Step 3/7 — Pre-generating TTS audio for accurate chapter timestamps…")
+        try:
+            sections  = script.get("sections", [])
+            durations = _measure_tts_durations(sections, tts_tmp)
+            ts_block  = _build_chapter_timestamps(sections, durations)
+            desc      = (script.get("description") or "")
+            import re as _re
+            cleaned   = _re.sub(r"(\d+:\d{2}[^\n]*\n?)+", "", desc).strip()
+            script["description"] = cleaned + "\n\n" + ts_block
+            log.info("  Chapter timestamps updated from real TTS durations")
+        except Exception as e:
+            log.warning(f"  TTS pre-generation failed ({e}) — using word-count estimates")
+
+    # ── 4: Thumbnails ─────────────────────────────────────────────────────────
+    thumb_a = thumb_b = None
+    if AB_THUMBNAILS:
+        log.info("Step 4/7 — Generating A/B thumbnails…")
+        try:
+            hook_emotion = (script.get("sections") or [{}])[0].get("emotion_target", "default")
+            keyword      = (script.get("sections") or [{}])[0].get("visual_keyword", "")
+            thumb_a, thumb_b = generate_thumbnails(
+                title         = script["video_title"],
+                score         = score,
+                emotion       = hook_emotion,
+                visual_keyword = keyword,
+                out_dir       = str(out_dir),
+                prefix        = f"thumb_{ts}",
+            )
+            log.info(f"  Variant A → {thumb_a}")
+            log.info(f"  Variant B → {thumb_b}")
+        except Exception as e:
+            log.warning(f"  Thumbnail generation failed: {e}")
+
+    # ── 5: Long-form video ───────────────────────────────────────────────────
+    if SHORTS_MODE != "only":
+        log.info("Step 5/7 — Rendering long-form video…")
         video_path = str(out_dir / f"video_{ts}.mp4")
         try:
-            make_video_from_script(script, video_path)
+            render_video(script, video_path)   # Remotion → MoviePy fallback
             log.info(f"  Video saved → {video_path}")
         except Exception as e:
             log.error(f"Long-form render failed: {e}")
             video_path = None
     else:
-        video_path = None
+        log.info("Step 5/7 — Long-form skipped (SHORTS_MODE=only)")
 
-    # ── 4: Shorts video ──────────────────────────────────────────────────────
-    shorts_path = None
+    # ── 6: Shorts video ──────────────────────────────────────────────────────
     if SHORTS_MODE in ("also", "only"):
-        log.info("Step 4/5 — Generating & rendering Short…")
+        log.info("Step 6/7 — Generating & rendering Short…")
         try:
             shorts_script = generate_shorts_script(script)
             shorts_path   = str(out_dir / f"short_{ts}.mp4")
             make_shorts_from_script(shorts_script, shorts_path)
-            short_script_path = out_dir / f"short_script_{ts}.json"
-            short_script_path.write_text(json.dumps(shorts_script, indent=2, ensure_ascii=False))
+            (out_dir / f"short_script_{ts}.json").write_text(
+                json.dumps(shorts_script, indent=2, ensure_ascii=False)
+            )
             log.info(f"  Short saved → {shorts_path}")
         except Exception as e:
             log.error(f"Shorts render failed: {e}")
-            shorts_path = None
     else:
-        log.info("Step 4/5 — Shorts disabled (SHORTS_MODE=off)")
+        log.info("Step 6/7 — Shorts disabled (SHORTS_MODE=off)")
 
-    # ── 5: Upload ────────────────────────────────────────────────────────────
-    log.info("Step 5/5 — Uploading to YouTube…")
+    # ── 7: Upload ────────────────────────────────────────────────────────────
+    log.info("Step 7/7 — Uploading to YouTube…")
     try:
-        youtube = get_authenticated_service()
+        youtube = youtube_early or get_authenticated_service()
 
         if video_path and Path(video_path).exists():
+            # Upload with Variant A thumbnail first
             video_id = upload_video(
-                youtube     = youtube,
-                video_path  = video_path,
-                title       = script["video_title"],
-                description = script["description"],
-                tags        = script["tags"],
-                category_id = script.get("category_id", "22"),
-                privacy     = PRIVACY,
+                youtube        = youtube,
+                video_path     = video_path,
+                title          = script["video_title"],
+                description    = script["description"],
+                tags           = script["tags"],
+                category_id    = script.get("category_id", "22"),
+                privacy        = PRIVACY,
+                thumbnail_path = thumb_a,
             )
             url = f"https://www.youtube.com/watch?v={video_id}"
             log.info(f"  Long-form uploaded → {url}")
@@ -779,7 +893,24 @@ def run_pipeline() -> None:
             print(f"  Privacy: {PRIVACY}")
             print(f"{'='*60}\n")
 
-        if shorts_path and Path(shorts_path).exists():
+            # Register A/B test (Variant B uploaded for comparison by ctr_manager)
+            if AB_THUMBNAILS and thumb_a and thumb_b:
+                try:
+                    # Upload Variant B immediately so it's queued in YouTube's system
+                    upload_thumbnail(youtube, video_id, thumb_b)
+                    register_ab_test(
+                        video_id = video_id,
+                        title    = script["video_title"],
+                        thumb_a  = thumb_a,
+                        thumb_b  = thumb_b,
+                        score    = score,
+                        emotion  = (script.get("sections") or [{}])[0].get("emotion_target", "default"),
+                    )
+                    log.info(f"  A/B test registered — winner resolved in {os.environ.get('ANALYTICS_READBACK_HOURS','48')}h")
+                except Exception as e:
+                    log.warning(f"  A/B registration failed: {e}")
+
+        if shorts_path and Path(shorts_path).exists() and shorts_script:
             short_id = upload_video(
                 youtube     = youtube,
                 video_path  = shorts_path,
@@ -791,8 +922,7 @@ def run_pipeline() -> None:
             )
             short_url = f"https://www.youtube.com/watch?v={short_id}"
             log.info(f"  Short uploaded → {short_url}")
-            print(f"  ✅  Short uploaded!")
-            print(f"  URL    : {short_url}\n")
+            print(f"  ✅  Short uploaded → {short_url}\n")
 
     except FileNotFoundError as e:
         log.error(str(e))
@@ -848,9 +978,15 @@ Examples:
         "--schedule", action="store_true",
         help="Run on a daily schedule instead of once",
     )
+    parser.add_argument(
+        "--ab-report", action="store_true",
+        help="Print A/B thumbnail test results and exit",
+    )
     args = parser.parse_args()
 
-    if args.schedule:
+    if args.ab_report:
+        print_ab_summary()
+    elif args.schedule:
         run_scheduled()
     else:
         run_pipeline()
