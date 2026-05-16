@@ -1,18 +1,34 @@
 #!/usr/bin/env bash
 # ──────────────────────────────────────────────────────────────────────────────
-# autorun.sh — YouTube Auto-Upload Pipeline launcher
+# autorun.sh — YouTube Auto-Upload Pipeline launcher (Session 7)
 #
 # What it does automatically:
 #   Step 1  Fetch 25 trending videos (YouTube API or Google Trends fallback)
-#   Step 2  Claude picks best topic + writes 6-8 min script (JSON)
-#   Step 3  Render MP4: Pexels backgrounds + neural TTS + text overlays
-#   Step 4  Upload to your YouTube channel with title, description, tags
+#   Step 2  Claude writes a 10-section psychological script (JSON)
+#             • Emotion-keyed architecture (shock→dread→recognition→…→belonging)
+#             • Open-loop discipline (A/B/C/D), peak_sentence, fake-out, rewatch clue
+#             • Quality gate (target 88+/100) with up to SCRIPT_REWRITE_PASSES rewrites
+#   Step 3  Render long-form 1920×1080 MP4
+#             • Emotion-keyed gradient palettes + vignette
+#             • Silent 2.5s pull-quote cards after each section
+#             • Retention-bridge overlays (last 28% of every section)
+#             • Pattern-interrupt visual resets every 35s
+#             • Rewatch-clue easter egg on Section 1
+#   Step 4  Render Shorts 1080×1920 MP4 (≤60s) — SHORTS_MODE=also
+#             • comment_bait, identity_mirror, end_screen_hook visual layers
+#   Step 5  Upload both to your YouTube channel
 #
 # First run:
 #   bash autorun.sh            ← runs the pipeline once now
 #
 # Daily automatic:
 #   bash autorun.sh --schedule ← runs every day at SCHEDULE_HOUR (from .env)
+#
+# Key .env settings:
+#   SHORTS_MODE=also            # off | also | only
+#   QUALITY_GATE_THRESHOLD=88   # rescore target
+#   SCRIPT_REWRITE_PASSES=2     # how many LLM rewrites to attempt
+#   YOUTUBE_PRIVACY=private     # flip to public when ready
 # ──────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
