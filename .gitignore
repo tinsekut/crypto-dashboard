@@ -25,3 +25,14 @@ Thumbs.db
 # Logs
 logs/
 *.log
+pipeline.log
+
+# OAuth token — contains access credentials, never commit
+token.json
+
+# Generated pipeline output
+output/
+
+# ffmpeg temp files
+*.m4a
+*.temp.mp4
