@@ -13,3 +13,4 @@ gTTS
 edge-tts
 requests
 APScheduler
+pytrends

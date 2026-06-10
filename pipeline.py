@@ -67,7 +67,8 @@ SCHEDULE_HOUR = int(os.environ.get("SCHEDULE_HOUR", "9"))
 
 # ── Step 1: Fetch trending videos ─────────────────────────────────────────────
 
-def fetch_trending(n: int = 25) -> list[dict]:
+def fetch_trending_youtube(n: int = 25) -> list[dict]:
+    """Primary source: YouTube Data API v3."""
     yt = build("youtube", "v3", developerKey=YT_API_KEY)
     resp = yt.videos().list(
         part="snippet,statistics",
@@ -75,7 +76,6 @@ def fetch_trending(n: int = 25) -> list[dict]:
         regionCode=REGION,
         maxResults=n,
     ).execute()
-
     videos = []
     for v in resp.get("items", []):
         sn = v["snippet"]
@@ -89,6 +89,38 @@ def fetch_trending(n: int = 25) -> list[dict]:
             "comments": int(st.get("commentCount", 0)),
         })
     return videos
+
+
+def fetch_trending_google() -> list[dict]:
+    """Fallback source: Google Trends (no API key required)."""
+    from pytrends.request import TrendReq
+    pt = TrendReq(hl="en-US", tz=0, timeout=(10, 30))
+    country_map = {
+        "US": "united_states", "GB": "united_kingdom", "CA": "canada",
+        "AU": "australia",     "IN": "india",           "PH": "philippines",
+        "SG": "singapore",     "MY": "malaysia",
+    }
+    pn  = country_map.get(REGION, "united_states")
+    df  = pt.trending_searches(pn=pn)
+    terms = df[0].tolist()[:25]
+    return [{"title": t, "channel": "Google Trends", "tags": [],
+             "views": 0, "likes": 0, "comments": 0} for t in terms]
+
+
+def fetch_trending(n: int = 25) -> list[dict]:
+    """Try YouTube API first; fall back to Google Trends automatically."""
+    if YT_API_KEY:
+        try:
+            videos = fetch_trending_youtube(n)
+            log.info("  Source: YouTube Data API v3")
+            return videos
+        except HttpError as e:
+            log.warning(f"YouTube API failed ({e.reason}) — switching to Google Trends")
+        except Exception as e:
+            log.warning(f"YouTube API error ({e}) — switching to Google Trends")
+
+    log.info("  Source: Google Trends (fallback)")
+    return fetch_trending_google()
 
 
 # ── Step 2: Generate structured script via Claude ─────────────────────────────

@@ -46,6 +46,25 @@ info "Installing packages from requirements.txt …"
 pip install --quiet --no-cache-dir -r "$(dirname "$0")/requirements.txt"
 ok "All packages installed into .venv"
 
+# ── ffmpeg (required by MoviePy for video rendering) ──────────────────────
+if ! command -v ffmpeg &>/dev/null; then
+    warn "ffmpeg not found — attempting install…"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        if command -v brew &>/dev/null; then
+            brew install ffmpeg --quiet && ok "ffmpeg installed via Homebrew"
+        else
+            warn "Homebrew not found. Install ffmpeg manually: brew install ffmpeg"
+            warn "Get Homebrew at: https://brew.sh"
+        fi
+    elif command -v apt-get &>/dev/null; then
+        sudo apt-get install -y -qq ffmpeg && ok "ffmpeg installed via apt"
+    else
+        warn "Cannot auto-install ffmpeg. Install it manually for your OS."
+    fi
+else
+    ok "ffmpeg already installed ($(ffmpeg -version 2>&1 | head -1 | cut -d' ' -f3))"
+fi
+
 # ── 4. .env setup ─────────────────────────────────────────────────────────
 ENV_FILE="$(cd "$(dirname "$0")" && pwd)/.env"
 EXAMPLE_FILE="$(cd "$(dirname "$0")" && pwd)/.env.example"
