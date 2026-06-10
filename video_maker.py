@@ -20,8 +20,6 @@ log = logging.getLogger(__name__)
 
 WIDTH, HEIGHT = 1920, 1080
 FPS           = 24
-PEXELS_KEY    = os.environ.get("PEXELS_API_KEY", "")
-TTS_VOICE     = os.environ.get("TTS_VOICE", "en-US-JennyNeural")
 
 
 # ── Font helper ──────────────────────────────────────────────────────────────
@@ -51,12 +49,13 @@ def _get_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
 # ── Background image ─────────────────────────────────────────────────────────
 
 def _fetch_pexels_image(keyword: str) -> Image.Image | None:
-    if not PEXELS_KEY:
+    pexels_key = os.environ.get("PEXELS_API_KEY", "")
+    if not pexels_key:
         return None
     try:
         r = requests.get(
             "https://api.pexels.com/v1/search",
-            headers={"Authorization": PEXELS_KEY},
+            headers={"Authorization": pexels_key},
             params={"query": keyword, "per_page": 3, "orientation": "landscape"},
             timeout=10,
         )
@@ -125,10 +124,16 @@ async def _edge_tts(text: str, path: str, voice: str) -> None:
 
 
 def _tts(text: str, path: str) -> bool:
+    voice = os.environ.get("TTS_VOICE", "en-US-JennyNeural")
     # Try edge-tts (high quality Microsoft neural voices)
     try:
         import edge_tts  # noqa: F401
-        asyncio.run(_edge_tts(text, path, TTS_VOICE))
+        # Use a dedicated event loop to avoid conflicts with any running loop
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(_edge_tts(text, path, voice))
+        finally:
+            loop.close()
         return True
     except ImportError:
         pass

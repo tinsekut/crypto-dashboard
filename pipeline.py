@@ -45,11 +45,12 @@ from video_maker      import make_video_from_script
 from youtube_uploader import get_authenticated_service, upload_video
 
 # ── Logging ───────────────────────────────────────────────────────────────────
+_LOG_FILE = Path(__file__).parent / "pipeline.log"
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.FileHandler("pipeline.log"),
+        logging.FileHandler(str(_LOG_FILE)),
         logging.StreamHandler(),
     ],
 )
@@ -215,7 +216,21 @@ def run_pipeline() -> None:
     log.info("Pipeline started")
     log.info("=" * 60)
 
-    out_dir = Path("output")
+    # Fast-fail: check client_secrets.json before doing any expensive work
+    _secrets = Path(__file__).parent / "client_secrets.json"
+    if not _secrets.exists():
+        log.error(
+            "\n\n  ❌  client_secrets.json not found — upload will fail.\n\n"
+            "  Steps to fix (one-time only):\n"
+            "  1. https://console.cloud.google.com/\n"
+            "  2. APIs & Services → Credentials\n"
+            "  3. + Create Credentials → OAuth 2.0 Client ID → Desktop app\n"
+            "  4. Download JSON → rename to client_secrets.json\n"
+            f"  5. Place it in: {Path(__file__).parent}\n"
+        )
+        return
+
+    out_dir = Path(__file__).parent / "output"
     out_dir.mkdir(exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
 
