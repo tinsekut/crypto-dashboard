@@ -280,6 +280,7 @@ def run(code):
             ok = True
             if P.get('msbGate') and S['majDir'] == -1: ok = False
             if P.get('chase') is not None and chase > P['chase']: ok = False
+            if P.get('minGrade') is not None and grade > P['minGrade']: ok = False   # 0 = A only, 1 = A/B
             if ok:
                 sig = dict(grade=grade, zone=hit, maj=S['majDir'], chase=chase, a=a)
                 if P['nextOpen']:

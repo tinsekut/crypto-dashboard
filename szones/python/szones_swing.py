@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """SZones daily swing routine for Shariah-compliant Bursa counters (paper record since 2 Nov 2026).
 
-Same settings as the 2016-2026 daily backtest (CLAUDE.md section 3): daily chart, weekly bias,
+Same settings as the 2016-2026 daily backtest (CLAUDE.md section 3), grade A only by default: daily chart, weekly bias,
 Bursa ticks, chase guard 0.5 ATR, net TP1 >= 0.25R, TP1 1.0 / TP2 2.0 ATR (or BSL within 6 ATR),
 SL 1.8 ATR, runner after TP2, entry at the NEXT day's open after a signal close, gap-aware stops,
-0.25% round-trip cost, long only. Backtest: +0.003R per trade, 43% win, TP1 55%, median hold 13 days.
+0.25% round-trip cost, long only. Backtest all grades: +0.003R per trade, 43% win, TP1 55%, median hold
+13 days; grade A only: -0.024R (t -0.30), 38% win, TP1 47%, 212 trades in 10.8 years.
 
 Usage (after 17:00 MYT):
   python3 szones_swing.py --date 2026-11-02 --workdir ../runs/swing_2026-11-02
@@ -23,6 +24,8 @@ ap.add_argument('--date', required=True)
 ap.add_argument('--workdir', default=None)
 ap.add_argument('--shariah', default=os.path.join(HERE, '..', 'data', 'shariah_sc_list_2026-05-29.json'))
 ap.add_argument('--min-adv', type=float, default=10e6, help='min 20-day avg turnover (RM)')
+ap.add_argument('--min-grade', default='A', choices=['A', 'B', 'C'],
+                help='lowest grade traded (tIn chose A only on 2 Nov 2026; backtest A only: -0.024R, t -0.30)')
 a = ap.parse_args()
 D = dt.date.fromisoformat(a.date)
 wd = os.path.abspath(a.workdir or os.path.join(os.getcwd(), f'swing_{a.date}'))
@@ -47,7 +50,7 @@ if len(missing) > len(codes) // 2:
 os.chdir(wd)
 import szones_v33 as Z
 Z.P.update(ticks=True, chase=0.5, minNet=0.25, tp1=1.0, tp2=2.0, tf=1440, daily=True, flat=False,
-           nextOpen=True, gapFill=True)
+           nextOpen=True, gapFill=True, minGrade='ABC'.index(a.min_grade))
 up = lambda x, t: math.ceil(round(x / t, 6)) * t
 dn = lambda x, t: math.floor(round(x / t, 6)) * t
 G = 'ABC'
@@ -104,13 +107,13 @@ for c in codes:
         sl = dn(trig - 1.8 * a_, tk); t1 = max(up(trig + 1.0 * a_, tk), trig + tk)
         net = ((t1 - trig) - 0.0025 * trig) / (trig - sl)
         maxE = dn(zt + 0.5 * a_, tk); g = r['plan']['expGrade']
-        if g in 'AB' and net >= 0.25 and maxE >= trig - 1e-9 and r['distZ1'] is not None and r['distZ1'] <= 1.0:
+        if g in 'ABC'[:'ABC'.index(a.min_grade) + 1] and net >= 0.25 and maxE >= trig - 1e-9 and r['distZ1'] is not None and r['distZ1'] <= 1.0:
             watch.append(dict(snapbase, event='WATCH', id=f'{nm}-{D}', grade=g, reasons=r['plan']['why'],
                               plan=dict(trigger_close=_f(trig), max_close=_f(maxE), entry='open after the signal close',
                                         sl=_f(sl), tp1=_f(t1), net_tp1_r=_f(net, 3))))
 
 closed.sort(key=lambda t: t['time'])
-print(f'\n=== {D}: daily swing (paper) ===')
+print(f'\n=== {D}: daily swing (paper), grades traded: {"ABC"[:"ABC".index(a.min_grade) + 1]} ===')
 if stale:
     print(f'WARNING: {len(stale)} counters have no bar for {D}: {", ".join(stale[:8])}')
 print(f'\nSignals at today\'s close -> buy at the next open ({len(signals)}):')
@@ -132,7 +135,8 @@ fwd = [t['r'] for t in closed if t['time'] >= str(GO_LIVE)]
 yr = [t['r'] for t in closed if (D - dt.date.fromisoformat(t['time'])).days <= 365]
 print(f'\nForward paper record since {GO_LIVE}: {len(fwd)} closed trades, total {sum(fwd):+.2f}R'
       + (f', avg {sum(fwd)/len(fwd):+.3f}R' if fwd else ''))
-print(f'Last 12 months (rules replayed): {len(yr)} trades, avg {sum(yr)/max(1, len(yr)):+.3f}R  |  backtest 2016-2026: +0.003R')
+BT = {'A': '-0.024R (212 trades)', 'B': '+0.038R (569 trades)', 'C': '+0.003R (938 trades)'}[a.min_grade]
+print(f'Last 12 months (rules replayed): {len(yr)} trades, avg {sum(yr)/max(1, len(yr)):+.3f}R  |  backtest 2016-2026: {BT}')
 print(f'\nWatch: could signal at the next close ({len(watch)}):')
 for w in sorted(watch, key=lambda w: w['zones']['dist_z1_atr']):
     q = w['plan']
