@@ -122,8 +122,9 @@ def tradingview(code, name, interval):
     except ImportError as e:
         raise RuntimeError(f'tvDatafeed unavailable ({e}); pip install websocket-client') from e
     tv = TvDatafeed()
-    iv = Interval.in_15_minute if interval == '15m' else Interval.in_daily
-    df = tv.get_hist(symbol=name, exchange='MYX', interval=iv, n_bars=5000 if interval == '15m' else 300)
+    iv = {'5m': Interval.in_5_minute, '15m': Interval.in_15_minute, '30m': Interval.in_30_minute,
+          '60m': Interval.in_1_hour, '1d': Interval.in_daily}[interval]
+    df = tv.get_hist(symbol=name, exchange='MYX', interval=iv, n_bars=300 if interval == '1d' else 5000)
     if df is None or df.empty:
         raise RuntimeError(f'no bars for MYX:{name}')
     rows = []
@@ -134,8 +135,8 @@ def tradingview(code, name, interval):
         rows.append((int(ts.timestamp()), float(r['open']), float(r['high']), float(r['low']),
                      float(r['close']), float(r['volume'])))
     meta = {'shortName': name, 'source': 'tradingview'}
-    if interval == '15m':
-        meta['regularMarketTime'] = rows[-1][0] + 900
+    if interval != '1d':
+        meta['regularMarketTime'] = rows[-1][0] + 60 * int(interval[:-1])
     return _yahoo_shape(rows, meta)
 
 

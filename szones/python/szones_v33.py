@@ -15,7 +15,7 @@ COST = 0.0025          # ~0.25% round trip: brokerage + clearing + stamp duty (a
 P = dict(emaF=21, emaS=55, htfEma=55, atr=14, z=(0.5, 1.0, 1.6, 2.4), zw=0.25, center=34,
          st=5, pd=50, fvgMin=0.2, fvgMax=5, liq=10, liqMax=10, obLook=10, obMax=3,
          maj=20, poiLook=15, poiMax=150, sl=1.8, tp1=0.6, tp2=1.2, maxLiq=6.0, scale=0.5,
-         sweepLook=5)
+         sweepLook=5, tf=15, htfMin=60, flat=True)   # tf = chart minutes; flat = exit at session end
 
 
 def tick(p):
@@ -65,7 +65,7 @@ def pivots(x, L, high=True):
 
 
 def load15(code):
-    d = json.load(open(f'data/{code}_15m.json'))['chart']['result'][0]
+    d = json.load(open(f"data/{code}_{P['tf']}m.json"))['chart']['result'][0]
     q = d['indicators']['quote'][0]
     rows = []
     for t, o, h, l, c, v in zip(d['timestamp'], q['open'], q['high'], q['low'], q['close'], q['volume']):
@@ -77,7 +77,7 @@ def load15(code):
             continue
         rows.append((m, o, h, l, c, v or 0))
     rmt = d['meta'].get('regularMarketTime')
-    if not os.environ.get('SZ_CLOSED') and rows and rmt and rows[-1][0].timestamp() + 15 * 60 > rmt + 60:
+    if not os.environ.get('SZ_CLOSED') and rows and rmt and rows[-1][0].timestamp() + P['tf'] * 60 > rmt + 60:
         rows.pop()
     return rows, d['meta']
 
@@ -100,7 +100,7 @@ def run(code):
     eF, eS, cen = ema(c, P['emaF']), ema(c, P['emaS']), ema(c, P['center'])
 
     # HTF 60m: resample, then each 15m bar sees the PREVIOUS completed hour (close[1] + lookahead_on)
-    hkey = [(t.date(), t.hour) for t in T]
+    hkey = [(t.date(), (t.hour * 60 + t.minute) // P['htfMin']) for t in T]
     keys, hc = [], []
     for i, k in enumerate(hkey):
         if not keys or keys[-1] != k:
@@ -118,7 +118,7 @@ def run(code):
     stH, stL = pivots(h, P['st']), pivots(l, P['st'], False)
     mjH_, mjL_ = pivots(h, P['maj']), pivots(l, P['maj'], False)
     atrAvg = np.array([np.nanmean(atr[max(0, i - 99):i + 1]) if i >= 99 else np.nan for i in range(n)])
-    lastBar = [(i < n - 1 and T[i + 1].date() != T[i].date()) or (i == n - 1 and T[i].hour * 60 + T[i].minute >= 16 * 60 + 45) for i in range(n)]
+    lastBar = [(i < n - 1 and T[i + 1].date() != T[i].date()) or (i == n - 1 and T[i].hour * 60 + T[i].minute + P['tf'] >= 16 * 60 + 50) for i in range(n)]
 
     S = dict(anchor=np.nan, zAtr=np.nan, zDirPrev=0, hiL=[], loL=[], bullSwBar=None, lastSH=np.nan, prevSH=np.nan,
              lastSL=np.nan, prevSL=np.nan, shB=True, slB=True, sDir=0, bullOB=[], bearOB=[], mjH=np.nan, mjHB=True,
@@ -240,13 +240,13 @@ def run(code):
                     ex = c[i]; tr['how'] = 'runner'
                 elif not longB:
                     ex = c[i]; tr['how'] = 'bias'
-                elif lastBar[i]:
+                elif lastBar[i] and P['flat']:
                     ex = c[i]; tr['how'] = 'EOD'
             if ex is not None:
                 rem = 1 - P['scale'] if tr['tp1'] else 1.0
                 tr['R'] += rem * (ex - tr['e']) / tr['risk'] - COST * tr['e'] / tr['risk']
                 trades.append(tr); tr = None
-        elif longSetup and hm <= 16 * 60 + 15 and not lastBar[i]:
+        elif longSetup and hm + P['tf'] <= 16 * 60 + 30 and not lastBar[i]:
             e = c[i]; tk = tick(e)
             chase = (e - zt) / a
             ok = True

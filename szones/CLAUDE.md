@@ -69,6 +69,18 @@ By grade (v3.3 preset): A −0.05, B −0.28, C −0.23. B is not better than C 
 
 Rolling 60-session average: **−0.196R per trade (221 trades)**. Still negative → paper or very small size.
 
+**Timeframe test (2 Nov 2026, TradingView data, 57 counters, Bursa preset, 0.25% cost, long only):** asked for "real time, shortest interval, maximum gain". Result: **shorter is worse; no timeframe is profitable after costs.**
+
+| Chart (bias TF) | Sessions | Trades | Gross R/trade | Net R/trade | Net R/session | Halves |
+|---|---|---|---|---|---|---|
+| 5m (60) intraday | 159 | 282 | −0.27 | −0.52 | −0.92 | −0.55 / −0.49 |
+| 15m (60) intraday | 285 | 1,003 | −0.07 | −0.27 | −0.97 | −0.29 / −0.26 |
+| 30m (240) intraday | 491 | 1,573 | −0.01 | −0.18 | −0.56 | −0.20 / −0.16 |
+| 60m (240) intraday | 780 | 1,727 | +0.00 | −0.13 | −0.30 | −0.14 / −0.13 |
+| 60m (240) overnight holds | 780 | 1,317 | +0.03 | −0.11 | −0.19 | −0.15 / −0.07 |
+
+5m has no edge even before costs, and costs (0.26R/trade at a ~1% stop) double the loss. Only 60m is about break-even gross. Same ranking on the common 159-session window. 4H HTF buckets are clock-aligned (approximation). Engine now takes `P['tf']`, `P['htfMin']`, `P['flat']`; tf=15 reproduces Fri 30 Oct exactly. Data delay (~15 min on all free feeds) also rules out true real-time on 5m.
+
 ### Lessons already built into the rules
 1. Levels must be entry-relative and tick-valid (27 Oct: morning sheet TP1 sat below DIALOG's actual entry).
 2. Don't chase: skip closes > 0.5 ATR past the zone (largest single improvement).
@@ -172,7 +184,7 @@ python3 szones_scorecard.py
 1. Weekday 17:15 MYT evening routine (section 6). Data access working since 2 Nov (section 4). For EODHD, tIn adds `EODHD_API_KEY` as an environment secret.
 2. Collect ≥50 scored trades before judging Claude's reviews.
 3. (done 2 Nov) Manual updated to v3.3.2.
-4. Test the same rules on **1H charts with overnight holds** (the grading was tested on 1H; 15m intraday is negative after costs).
+4. (done 2 Nov) 1H with overnight holds: least bad (−0.11R net, +0.03R gross) but still negative. Next candidate: daily-chart swing (untested).
 5. Refresh the Shariah list after 27 Nov 2026.
 6. Gold (XAUUSD) has never been tested with these rules — validate before trusting grades there.
 
