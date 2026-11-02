@@ -100,9 +100,9 @@ python3 szones_daily.py --date 2026-11-02 --closed   # after 17:00 MYT (keeps th
 - **Data (since 2 Nov: fallback chain in `python/szones_data.py`):** each counter's 15m and 1d bars come from the first source that returns enough clean bars, converted to the Yahoo chart-JSON shape so `szones_v33.py` is unchanged. Order via env `SZ_SOURCES` (default `yahoo,eodhd,tradingview`); `local` replays files already in the run folder. The source per counter is written to `runs/run_D/sources.json` — name it in the report. If more than half the universe has no 15m data the run aborts and writes no outputs (so the scorecard never scores an empty day).
   1. **Yahoo** (free): `query1`/`query2.finance.yahoo.com/v8/finance/chart/{code}.KL`, 15m 60d + 1d 1y, ~15 min delayed.
   2. **EODHD** (official, paid ~US$20/month EOD+intraday): `eodhd.com/api/intraday/{code}.KLSE?interval=5m` resampled to 15m, `api/eod` for daily. Needs env `EODHD_API_KEY` (set as an environment secret, never in files or chat). Non-US intraday is 5m/1h from Oct 2020. Live KLSE coverage untested.
-  3. **TradingView** (free, unofficial `tvDatafeed`, `MYX:<name>`, 15m up to 5000 bars ≈ 190 sessions): `pip install git+https://github.com/rongardF/tvdatafeed`. May break or be rate-limited; untested on MYX.
+  3. **TradingView** (free, unofficial `tvDatafeed`, `MYX:<name>`, 15m up to 5000 bars ≈ 190 sessions): vendored and reviewed in `python/vendor/tvDatafeed` (see its VENDORED.md; one header patch). Needs `pip install -r requirements.txt` (websocket-client, from PyPI). Never install it from GitHub in scheduled runs. May break or be rate-limited; untested on live MYX data (blocked at the proxy on 2 Nov).
   Researched and rejected (2 Nov): Twelve Data (Bursa only on Pro tier+, its own docs say XKLS may need a licence); Google Finance in Sheets (no confirmed Bursa support, history not readable by API).
-  Network allowlist needed: `query1.finance.yahoo.com`, `query2.finance.yahoo.com`, `eodhd.com`, `data.tradingview.com`, `www.tradingview.com` (plus `github.com` for the tvDatafeed install). As of 2 Nov all were blocked in the cloud environment.
+  Network allowlist needed: `query1.finance.yahoo.com`, `query2.finance.yahoo.com`, `eodhd.com`, `data.tradingview.com`, `www.tradingview.com` (TradingView's websocket also needs `symbol-search.tradingview.com` only if symbol search is used; SZones doesn't). As of 2 Nov all were blocked in the cloud environment.
 - Lunch bars 12:30–14:30 are removed.
 - **Universe:** `data/shariah_sc_list_2026-05-29.json` (SC list effective 29 May 2026, via a mirror site). 59 compliant in the file; MYEG (0138) and DNEX (7033) excluded for bad Yahoo data → 57. **Next SC list update: Fri 27 Nov 2026** — refresh the file then.
 - **Non-compliant (excluded):** YTL Power, YTL, Yinson, Hap Seng, Astro, Maybank, Genting, Genting Malaysia, KLCC.
@@ -185,6 +185,8 @@ python3 szones_scorecard.py
 | `pine/SZones_v3_3_2.pine` | Current indicator (full script) |
 | `python/szones_v33.py` | Python port of the v3.3 rules (backtests, scans) |
 | `python/szones_data.py` | Data fallback chain: Yahoo → EODHD → TradingView (+ `local` replay) |
+| `python/vendor/tvDatafeed/` | Vendored, reviewed tvDatafeed 2.1.0 (MIT) for the TradingView source |
+| `requirements.txt` | PyPI dependencies: numpy, websocket-client |
 | `python/szones_daily.py` | Daily fetch + evaluate + watchlist; writes `snapshots.json` and `trades.json` |
 | `python/szones_scorecard.py` | Scores Claude's reviews against the next session's trades |
 | `runs/run_D/`, `reviews/D.json` | Daily outputs and Claude's calls (section 6) |

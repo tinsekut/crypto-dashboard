@@ -8,7 +8,8 @@ one that returns enough clean bars wins, and the winner is recorded per counter.
   eodhd      eodhd.com official API (paid, ~US$20/month EOD+intraday plan). Needs env
              EODHD_API_KEY. Non-US intraday comes as 5m bars (history from Oct 2020); they
              are resampled here to 15m. Symbols: <code>.KLSE. UNTESTED against live KLSE data.
-  tradingview  TradingView's own feed via the unofficial `tvDatafeed` package (MYX:<name>,
+  tradingview  TradingView's own feed via the unofficial `tvDatafeed` package, vendored and
+             reviewed in vendor/tvDatafeed (needs pip websocket-client) (MYX:<name>,
              15m, up to 5000 bars, no login). Free but unofficial: may break or be rate-limited.
              UNTESTED against live MYX data.
 
@@ -22,6 +23,7 @@ import datetime as dt
 import json
 import os
 import subprocess
+import sys
 
 MYT = dt.timezone(dt.timedelta(hours=8))
 ORDER = [s.strip() for s in os.environ.get('SZ_SOURCES', 'yahoo,eodhd,tradingview').split(',') if s.strip()]
@@ -112,11 +114,13 @@ def eodhd(code, name, interval):
 
 # ── TradingView (unofficial) ─────────────────────────────────────────────────
 def tradingview(code, name, interval):
+    vendor = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vendor')
+    if vendor not in sys.path:
+        sys.path.insert(0, vendor)      # reviewed copy, see vendor/tvDatafeed/VENDORED.md
     try:
         from tvDatafeed import TvDatafeed, Interval
     except ImportError as e:
-        raise RuntimeError('tvDatafeed not installed (pip install '
-                           'git+https://github.com/rongardF/tvdatafeed)') from e
+        raise RuntimeError(f'tvDatafeed unavailable ({e}); pip install websocket-client') from e
     tv = TvDatafeed()
     iv = Interval.in_15_minute if interval == '15m' else Interval.in_daily
     df = tv.get_hist(symbol=name, exchange='MYX', interval=iv, n_bars=5000 if interval == '15m' else 300)
