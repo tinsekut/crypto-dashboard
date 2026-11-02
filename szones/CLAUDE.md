@@ -102,7 +102,8 @@ python3 szones_daily.py --date 2026-11-02 --closed   # after 17:00 MYT (keeps th
   2. **EODHD** (official, paid ~US$20/month EOD+intraday): `eodhd.com/api/intraday/{code}.KLSE?interval=5m` resampled to 15m, `api/eod` for daily. Needs env `EODHD_API_KEY` (set as an environment secret, never in files or chat). Non-US intraday is 5m/1h from Oct 2020. Live KLSE coverage untested.
   3. **TradingView** (free, unofficial `tvDatafeed`, `MYX:<name>`, 15m up to 5000 bars ≈ 190 sessions): vendored and reviewed in `python/vendor/tvDatafeed` (see its VENDORED.md; one header patch). Needs `pip install -r requirements.txt` (websocket-client, from PyPI). Never install it from GitHub in scheduled runs. May break or be rate-limited; untested on live MYX data (blocked at the proxy on 2 Nov).
   Researched and rejected (2 Nov): Twelve Data (Bursa only on Pro tier+, its own docs say XKLS may need a licence); Google Finance in Sheets (no confirmed Bursa support, history not readable by API).
-  Network allowlist needed: `query1.finance.yahoo.com`, `query2.finance.yahoo.com`, `eodhd.com`, `data.tradingview.com`, `www.tradingview.com` (TradingView's websocket also needs `symbol-search.tradingview.com` only if symbol search is used; SZones doesn't). As of 2 Nov all were blocked in the cloud environment.
+  Network allowlist: `query1.finance.yahoo.com`, `query2.finance.yahoo.com`, `eodhd.com`, `data.tradingview.com` — **allowed by tIn on 2 Nov; all three sources reachable.**
+  Verified 2 Nov: replay of Fri 30 Oct on live Yahoo data reproduced the recorded day exactly (6 signals, −0.84R, A/B +0.11R). TradingView returned 5,000 15m bars for DIALOG (back to 17 Dec 2025) and matched Yahoo closes on 1,411 of 1,414 shared bars — usable for longer backtests (open item 4).
 - Lunch bars 12:30–14:30 are removed.
 - **Universe:** `data/shariah_sc_list_2026-05-29.json` (SC list effective 29 May 2026, via a mirror site). 59 compliant in the file; MYEG (0138) and DNEX (7033) excluded for bad Yahoo data → 57. **Next SC list update: Fri 27 Nov 2026** — refresh the file then.
 - **Non-compliant (excluded):** YTL Power, YTL, Yinson, Hap Seng, Astro, Maybank, Genting, Genting Malaysia, KLCC.
@@ -168,7 +169,7 @@ python3 szones_scorecard.py
 
 ## 8. Open items / next steps
 
-1. Weekday 17:15 MYT evening routine (section 6). Needs at least one data source reachable (section 4 allowlist) — all blocked as of 2 Nov. For EODHD, tIn adds `EODHD_API_KEY` as an environment secret.
+1. Weekday 17:15 MYT evening routine (section 6). Data access working since 2 Nov (section 4). For EODHD, tIn adds `EODHD_API_KEY` as an environment secret.
 2. Collect ≥50 scored trades before judging Claude's reviews.
 3. (done 2 Nov) Manual updated to v3.3.2.
 4. Test the same rules on **1H charts with overnight holds** (the grading was tested on 1H; 15m intraday is negative after costs).
