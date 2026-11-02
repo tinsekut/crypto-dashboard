@@ -1,0 +1,1298 @@
+//@version=6
+// ═══════════════════════════════════════════════════════════════════════════
+//  SZones v3.3 · trend-pullback zones + evidence-weighted SMC confluence
+//                + Analyst view (MSB, POI, IDM, price tags, scenario path)
+//
+//  Confluence scoring follows the Confluence Signal Engine test
+//  (275 signals, 37 crypto pairs, H1):
+//      structure aligned (BOS)        E[R] +0.268
+//      structure + premium/discount   E[R] +0.375  (best tested)
+//      structure + FVG                E[R] +0.341
+//      order block within 1 ATR       E[R] -0.115  <-- harmful, display only
+//      after a liquidity sweep        E[R] -0.083  <-- harmful, display only
+//
+//  v3.3 corrections, tested on 57 Shariah Bursa counters, 15m, 60 sessions,
+//  long only, flat by close, 0.25% round-trip cost (avg R per trade):
+//      v3.2 baseline                          n=751  -0.45R
+//      levels rounded to valid ticks          n=720  -0.39R
+//      chase guard (close <= 0.5 ATR past zone) n=258 -0.25R  (both halves agree)
+//      + cost filter + TP 1.0 / 2.0 ATR       n=234  -0.21R  (grade A -0.05R)
+//      skip longs vs bearish MSB              n=628  -0.46R  <-- no effect, info only
+//  Still NEGATIVE after costs on Bursa 15m. Paper-trade; use the stats rows.
+//
+//  v3.3.1: fixes RE10140 (too many plots). Zone borders use a fixed colour;
+//  signal, POI and sweep markers are labels, which do not count as plots.
+//  v3.3.3: defaults set for the Bursa DAILY SWING, GRADE A ONLY routine (2 Nov 2026):
+//  long only, Bursa ticks, 0.25% cost, HTF W, TP1 1.0 / TP2 2.0 ATR, minimum grade A.
+//  Use on a DAILY chart. Daily backtest 2016-2026, 57 Shariah counters, grade A only:
+//      n=212  -0.024R per trade (t -0.30)  <-- no reliable edge; paper-trade it.
+//  For gold: Round-trip cost 0.02, Bursa tick table off, Trade direction as you trade.
+// ═══════════════════════════════════════════════════════════════════════════
+indicator("SZones v3.3.3", shorttitle = "SZones v3.3.3", overlay = true, max_lines_count = 200, max_labels_count = 500, max_boxes_count = 60)
+
+// ═══ Inputs ═══════════════════════════════════════════════════════════════
+grpMkt      = "Market, costs & session"
+preset      = input.string("Custom", "Preset", options = ["Custom", "Bursa intraday (15m)"], group = grpMkt, tooltip = "Bursa intraday forces: long only, Bursa tick table, 0.25% cost, TP1 1.0 / TP2 2.0 ATR, session rules on.")
+dirMode     = input.string("Long only", "Trade direction", options = ["Both", "Long only"], group = grpMkt, tooltip = "Long only for Shariah accounts (no short selling).")
+costPctIn   = input.float(0.25, "Round-trip cost %", minval = 0, step = 0.01, group = grpMkt, tooltip = "Brokerage + clearing + stamp duty (Bursa ~0.25%). Use ~0.02 for gold CFDs. Deducted from all stats.")
+minNetR     = input.float(0.25, "Min net TP1 reward (R)", step = 0.05, group = grpMkt, tooltip = "Skip signals whose TP1 profit, after costs, is below this fraction of the risk.")
+maxChase    = input.float(0.5, "Max entry distance beyond zone (ATR)", minval = 0, step = 0.05, group = grpMkt, tooltip = "Skip signals whose rejection candle closes too far past the zone. Tested: -0.45R -> -0.25R on Bursa 15m, stable in both halves.")
+bursaTickIn = input.bool(true, "Use Bursa tick table", group = grpMkt, tooltip = "<1.00: 0.005 · <10.00: 0.01 · <100: 0.02 · else 0.10. Off = symbol min tick.")
+useSessIn   = input.bool(false, "Intraday session rules", group = grpMkt)
+entrySess   = input.session("0900-1615", "Entry window (exchange time)", group = grpMkt)
+flatHHMM    = input.int(1645, "Flatten from bar opening at (HHMM)", minval = 0, maxval = 2359, group = grpMkt)
+
+grpTrend     = "Trend Filter"
+emaFastLen   = input.int(21, "Fast EMA", minval = 5, group = grpTrend)
+emaSlowLen   = input.int(55, "Slow EMA", minval = 10, group = grpTrend)
+htf          = input.timeframe("W", "HTF for bias", group = grpTrend, tooltip = "W on daily charts (default, daily swing). Use 60 on 15m charts, 240 on 1H.")
+useHtfFilter = input.bool(true, "Require HTF agreement", group = grpTrend, tooltip = "Uses the last CLOSED HTF bar (no repaint). Auto-disabled if HTF is not higher than the chart TF.")
+
+grpZones    = "Zones (ATR-based)"
+atrLen      = input.int(14, "ATR Length", minval = 5, group = grpZones)
+zoneMult1   = input.float(0.5, "Zone 1 (closest) ATR mult", step = 0.1, group = grpZones)
+zoneMult2   = input.float(1.0, "Zone 2 ATR mult", step = 0.1, group = grpZones)
+zoneMult3   = input.float(1.6, "Zone 3 ATR mult", step = 0.1, group = grpZones)
+zoneMult4   = input.float(2.4, "Zone 4 (farthest) ATR mult", step = 0.1, group = grpZones)
+zoneWidth   = input.float(0.25, "Zone band width (ATR)", step = 0.05, group = grpZones)
+centerMaLen = input.int(34, "Center MA length", minval = 5, group = grpZones)
+freezeZones = input.bool(true, "Freeze zones during pullback", group = grpZones)
+showZones   = input.bool(true, "Show zones", group = grpZones)
+
+grpSmc        = "Smart Money (SMC) confluence"
+structLen     = input.int(5, "Internal structure swing length", minval = 2, maxval = 20, group = grpSmc)
+showIntLines  = input.bool(true, "Draw internal BOS / CHoCH lines", group = grpSmc)
+usePD         = input.bool(true, "Score premium / discount", group = grpSmc)
+pdLen         = input.int(50, "Premium/discount range length", minval = 10, group = grpSmc)
+useFVG        = input.bool(true, "Fair value gaps", group = grpSmc)
+fvgMinAtr     = input.float(0.2, "Min FVG size (ATR)", minval = 0, step = 0.05, group = grpSmc)
+fvgMax        = input.int(5, "Max open FVGs per side", minval = 1, maxval = 20, group = grpSmc)
+swingLen      = input.int(10, "Liquidity swing length (BSL/SSL)", minval = 2, group = grpSmc)
+maxSwings     = input.int(10, "Max liquidity levels per side", minval = 1, maxval = 40, group = grpSmc)
+showLiq       = input.bool(true, "Show liquidity lines", group = grpSmc)
+sweepLookback = input.int(5, "Sweep stays valid for N bars", minval = 1, group = grpSmc)
+useOB         = input.bool(true, "Draw internal order blocks (on BOS)", group = grpSmc)
+obLookback    = input.int(10, "OB search lookback (bars)", minval = 3, maxval = 30, group = grpSmc)
+obMax         = input.int(3, "Max open OBs per side", minval = 1, maxval = 10, group = grpSmc)
+scoreObSweep  = input.bool(false, "Score OB & sweeps (tested harmful)", group = grpSmc)
+useSqueeze    = input.bool(true, "Detect squeeze (triangle)", group = grpSmc)
+
+grpAn      = "Analyst view (untested)"
+showMSB    = input.bool(true, "Draw major structure breaks (MSB)", group = grpAn)
+majLen     = input.int(20, "Major swing length", minval = 5, maxval = 60, group = grpAn)
+usePOI     = input.bool(true, "Mark POI order block on each MSB", group = grpAn)
+poiLookback= input.int(15, "POI search lookback (bars)", minval = 3, maxval = 40, group = grpAn)
+poiMaxBars = input.int(150, "POI expires after (bars)", minval = 10, group = grpAn)
+showIDM    = input.bool(true, "Mark inducement (IDM)", group = grpAn)
+showTags   = input.bool(true, "Price tags at right edge", group = grpAn)
+showPath   = input.bool(true, "Draw scenario path", group = grpAn)
+extMult    = input.float(0.618, "Extension = leg x", minval = 0.1, step = 0.1, group = grpAn)
+poiMode    = input.bool(false, "POI limit entries (untested)", group = grpAn)
+poiStopBuf = input.float(0.2, "POI stop buffer (ATR)", minval = 0, step = 0.05, group = grpAn)
+
+grpSig          = "Signals"
+requireReject   = input.bool(true, "Require rejection candle", group = grpSig)
+confirmOnly     = input.bool(true, "Signal on bar close only", group = grpSig)
+minGradeIn      = input.string("A only", "Minimum signal grade", options = ["C (all)", "B or better", "A only"], group = grpSig, tooltip = "+1 structure aligned, +1 premium/discount, +1 FVG in zone. -1 opposing FVG/OB before TP1, -1 squeeze. A = 2+, B = 1, C = 0 or less.")
+blockSqueeze    = input.bool(false, "Block signals during squeeze", group = grpSig)
+useStructFilter = input.bool(false, "Require structure alignment (hard gate)", group = grpSig)
+
+grpTrade   = "Trade Management"
+slAtrMult  = input.float(1.8, "Stop ATR mult", step = 0.1, group = grpTrade)
+tp1AtrIn   = input.float(1.0, "TP1 ATR mult", step = 0.1, group = grpTrade, tooltip = "1.0 = daily swing routine and Bursa preset. Older default 0.6.")
+tpMode     = input.string("Liquidity", "TP2 mode", options = ["Liquidity", "ATR"], group = grpTrade)
+tp2AtrIn   = input.float(2.0, "TP2 ATR mult (fallback)", step = 0.1, group = grpTrade, tooltip = "2.0 = daily swing routine and Bursa preset. Older default 1.2.")
+maxLiqAtr  = input.float(6.0, "Max liquidity target distance (ATR)", step = 0.5, group = grpTrade)
+scaleOut   = input.float(50, "% of position closed at TP1", minval = 0, maxval = 100, step = 5, group = grpTrade) / 100
+useRunner  = input.bool(true, "Runner after TP2", group = grpTrade)
+
+grpDash   = "Dashboard"
+showDash  = input.bool(true, "Show dashboard", group = grpDash)
+dashPos   = input.string("Top right", "Position", options = ["Top right", "Top left", "Bottom right", "Bottom left"], group = grpDash)
+dashSize  = input.string("Small", "Text size", options = ["Tiny", "Small", "Normal"], group = grpDash)
+acctSize  = input.float(10000, "Account size", minval = 1, group = grpDash)
+riskPct   = input.float(1.0, "Risk per trade %", minval = 0.1, maxval = 10, step = 0.1, group = grpDash)
+minTrades = input.int(20, "Min closed trades to trust stats", minval = 5, group = grpDash)
+
+grpLv      = "Levels"
+showPivots = input.bool(true, "Classic daily pivots + PDH/PDL", group = grpLv)
+
+// ═══ Preset resolution ════════════════════════════════════════════════════
+isBursa  = preset == "Bursa intraday (15m)"
+longOnly = isBursa or dirMode == "Long only"
+costPct  = isBursa ? 0.25 : costPctIn
+bursaTk  = isBursa or bursaTickIn
+sessOn   = isBursa or useSessIn
+tp1M     = isBursa ? 1.0 : tp1AtrIn
+tp2M     = isBursa ? 2.0 : tp2AtrIn
+
+// ═══ Helpers ══════════════════════════════════════════════════════════════
+f_tk(float p) => bursaTk ? (p < 1.0 ? 0.005 : p < 10.0 ? 0.01 : p < 100.0 ? 0.02 : 0.1) : syminfo.mintick
+f_dn(float x, float tk) => math.floor(x / tk + 1e-9) * tk
+f_up(float x, float tk) => math.ceil(x / tk - 1e-9) * tk
+// stop rounded away from entry, target rounded away from entry, target at least 1 tick
+f_stop(float e, float dist, int d) => d == 1 ? f_dn(e - dist, f_tk(e)) : f_up(e + dist, f_tk(e))
+f_tgt(float e, float dist, int d) => d == 1 ? math.max(f_up(e + dist, f_tk(e)), e + f_tk(e)) : math.min(f_dn(e - dist, f_tk(e)), e - f_tk(e))
+
+f_touch(top, bot) => low <= top and high >= bot
+f_reached(level, d) => d == 1 ? high >= level : low <= level
+f_px(x) => na(x) ? "–" : str.tostring(x, format.mintick)
+f_sgn(x) => na(x) ? "–" : (x >= 0 ? "+" : "") + str.tostring(x, "#.00")
+f_gradeTxt(g) => g == 0 ? "A" : g == 1 ? "B" : "C"
+f_bars(dist, a) => math.max(2, math.round(math.abs(dist) / a * 1.5))
+f_row(tbl, r, k, v, c, sz) =>
+    table.cell(tbl, 0, r, k, text_color = color.silver, text_size = sz, text_halign = text.align_left, text_valign = text.align_top)
+    table.cell(tbl, 1, r, v, text_color = c, text_size = sz, text_halign = text.align_left)
+
+f_mark(array<line> ls, array<label> lbs, int x1, float y, string txt, color c, string sty, int cap) =>
+    ls.push(line.new(x1, y, bar_index, y, color = c, style = sty, width = 1))
+    lbs.push(label.new(bar_index, y, txt, style = label.style_label_left, color = color.new(c, 100), textcolor = c, size = size.tiny))
+    if ls.size() > cap
+        ls.shift().delete()
+    if lbs.size() > cap
+        lbs.shift().delete()
+    ls.size()
+
+f_tag(label old, float y, string txt, color c) =>
+    label.delete(old)
+    label res = na
+    if not na(y)
+        res := label.new(bar_index + 3, y, txt + " " + str.tostring(y, format.mintick), style = label.style_label_left, color = color.new(c, 15), textcolor = color.white, size = size.tiny)
+    res
+
+f_overlapAny(array<box> arr, float top, float bot) =>
+    bool hit = false
+    for b in arr
+        if b.get_bottom() <= top and b.get_top() >= bot
+            hit := true
+    hit
+
+f_obstacleAbove(array<box> arr, float px) =>
+    float best = na
+    for b in arr
+        if b.get_top() > px
+            v = math.max(b.get_bottom(), px)
+            if na(best) or v < best
+                best := v
+    best
+
+f_obstacleBelow(array<box> arr, float px) =>
+    float best = na
+    for b in arr
+        if b.get_bottom() < px
+            v = math.min(b.get_top(), px)
+            if na(best) or v > best
+                best := v
+    best
+
+f_minTopAbove(array<box> arr, float px) =>
+    float best = na
+    for b in arr
+        t = b.get_top()
+        if t > px and (na(best) or t < best)
+            best := t
+    best
+
+f_maxBotBelow(array<box> arr, float px) =>
+    float best = na
+    for b in arr
+        t = b.get_bottom()
+        if t < px and (na(best) or t > best)
+            best := t
+    best
+
+f_nearestLine(array<line> arr, float px, int dir) =>
+    float best = na
+    for l in arr
+        y = l.get_y1()
+        if (dir == 1 ? y > px : y < px) and (na(best) or (dir == 1 ? y < best : y > best))
+            best := y
+    best
+
+f_why(bool st, bool pd, bool fv, bool sw, bool ob, bool scoreInfo, bool br, bool sq, bool vsMaj) =>
+    string s = ""
+    s := st ? s + "BOS " : s
+    s := pd ? s + "P/D " : s
+    s := fv ? s + "FVG " : s
+    if scoreInfo
+        s := sw ? s + "sweep " : s
+        s := ob ? s + "OB " : s
+    s := br ? s + "⚠barrier " : s
+    s := sq ? s + "⚠squeeze " : s
+    if (not scoreInfo and (sw or ob)) or vsMaj
+        s := s + "(info: " + (not scoreInfo and sw ? "sweep " : "") + (not scoreInfo and ob ? "OB " : "") + (vsMaj ? "vs MSB" : "") + ")"
+    s == "" ? "zone only" : s
+
+// ═══ Session ══════════════════════════════════════════════════════════════
+tz     = syminfo.timezone
+dayKey = year(time, tz) * 10000 + month(time, tz) * 100 + dayofmonth(time, tz)
+hhmm   = hour(time, tz) * 100 + minute(time, tz)
+inSess = not sessOn or not timeframe.isintraday or not na(time(timeframe.period, entrySess, tz))
+flatNow = sessOn and timeframe.isintraday and hhmm >= flatHHMM
+
+// ═══ Trend / bias ═════════════════════════════════════════════════════════
+atr    = ta.atr(atrLen)
+atrAvg = ta.sma(atr, 100)
+emaF   = ta.ema(close, emaFastLen)
+emaS   = ta.ema(close, emaSlowLen)
+center = ta.ema(close, centerMaLen)
+
+htfValid = timeframe.in_seconds(htf) > timeframe.in_seconds(timeframe.period)
+[htfClose, htfEma] = request.security(syminfo.tickerid, htf, [close[1], ta.ema(close, emaSlowLen)[1]], lookahead = barmerge.lookahead_on)
+htfOn   = useHtfFilter and htfValid
+htfBull = htfClose > htfEma
+htfBear = htfClose < htfEma
+
+longBias  = emaF > emaS and (not htfOn or htfBull)
+shortBias = emaF < emaS and (not htfOn or htfBear)
+zDir      = longBias ? 1 : shortBias ? -1 : 0
+
+// ═══ Zones ════════════════════════════════════════════════════════════════
+var float anchor = na
+var float zAtr   = na
+pulling = (zDir == 1 and close < center) or (zDir == -1 and close > center)
+hold    = freezeZones and pulling and zDir == zDir[1] and not na(anchor)
+anchor := hold ? anchor : center
+zAtr   := hold ? zAtr : atr
+
+halfW = zAtr * zoneWidth / 2
+f_mid(mult) => anchor - zDir * zAtr * mult
+
+m1 = f_mid(zoneMult1)
+m2 = f_mid(zoneMult2)
+m3 = f_mid(zoneMult3)
+m4 = f_mid(zoneMult4)
+z1Top = m1 + halfW
+z1Bot = m1 - halfW
+z2Top = m2 + halfW
+z2Bot = m2 - halfW
+z3Top = m3 + halfW
+z3Bot = m3 - halfW
+z4Top = m4 + halfW
+z4Bot = m4 - halfW
+
+showZ      = showZones and zDir != 0 and not (longOnly and zDir == -1)
+zoneBorder = color.new(color.gray, 70)
+zoneFill(t) => zDir == 1 ? color.new(color.green, t) : color.new(color.red, t)
+
+pz1t = plot(showZ ? z1Top : na, "Z1 top", zoneBorder, style = plot.style_linebr, editable = false)
+pz1b = plot(showZ ? z1Bot : na, "Z1 bot", zoneBorder, style = plot.style_linebr, editable = false)
+pz2t = plot(showZ ? z2Top : na, "Z2 top", zoneBorder, style = plot.style_linebr, editable = false)
+pz2b = plot(showZ ? z2Bot : na, "Z2 bot", zoneBorder, style = plot.style_linebr, editable = false)
+pz3t = plot(showZ ? z3Top : na, "Z3 top", zoneBorder, style = plot.style_linebr, editable = false)
+pz3b = plot(showZ ? z3Bot : na, "Z3 bot", zoneBorder, style = plot.style_linebr, editable = false)
+pz4t = plot(showZ ? z4Top : na, "Z4 top", zoneBorder, style = plot.style_linebr, editable = false)
+pz4b = plot(showZ ? z4Bot : na, "Z4 bot", zoneBorder, style = plot.style_linebr, editable = false)
+fill(pz1t, pz1b, showZ ? zoneFill(82) : na, "Zone 1 fill")
+fill(pz2t, pz2b, showZ ? zoneFill(86) : na, "Zone 2 fill")
+fill(pz3t, pz3b, showZ ? zoneFill(89) : na, "Zone 3 fill")
+fill(pz4t, pz4b, showZ ? zoneFill(92) : na, "Zone 4 fill")
+
+plot(center, "Center MA", color.new(color.orange, 30), 2)
+plot(emaF, "Fast EMA", color.new(color.teal, 50))
+plot(emaS, "Slow EMA", color.new(color.blue, 50))
+
+// ═══ Premium / discount ═══════════════════════════════════════════════════
+pdHi       = ta.highest(high, pdLen)
+pdLo       = ta.lowest(low, pdLen)
+pdMid      = (pdHi + pdLo) / 2.0
+inDiscount = close < pdMid
+plot(usePD ? pdMid : na, "Range mid (P/D)", color.new(#78909c, 55), 1)
+
+// ═══ Liquidity (BSL / SSL) + sweeps ═══════════════════════════════════════
+swingHi = ta.pivothigh(high, swingLen, swingLen)
+swingLo = ta.pivotlow(low, swingLen, swingLen)
+
+var line[] hiLines = array.new<line>()
+var line[] loLines = array.new<line>()
+liqHiCol = showLiq ? color.new(color.maroon, 20) : color.new(color.maroon, 100)
+liqLoCol = showLiq ? color.new(color.olive, 20) : color.new(color.olive, 100)
+
+bullSweep = false
+bearSweep = false
+float sweptLo = na
+float sweptHi = na
+if loLines.size() > 0
+    for i = loLines.size() - 1 to 0
+        y = loLines.get(i).get_y1()
+        if low < y
+            if close > y
+                bullSweep := true
+                sweptLo := na(sweptLo) ? y : math.min(sweptLo, y)
+            loLines.remove(i).delete()
+if hiLines.size() > 0
+    for i = hiLines.size() - 1 to 0
+        y = hiLines.get(i).get_y1()
+        if high > y
+            if close < y
+                bearSweep := true
+                sweptHi := na(sweptHi) ? y : math.max(sweptHi, y)
+            hiLines.remove(i).delete()
+
+var float lastBullSweepLvl = na
+var int   lastBullSweepBar = na
+var float lastBearSweepLvl = na
+var int   lastBearSweepBar = na
+if bullSweep
+    lastBullSweepLvl := sweptLo
+    lastBullSweepBar := bar_index
+if bearSweep
+    lastBearSweepLvl := sweptHi
+    lastBearSweepBar := bar_index
+
+if not na(swingHi)
+    hiLines.push(line.new(bar_index - swingLen, swingHi, bar_index, swingHi, extend = extend.right, color = liqHiCol, style = line.style_dashed))
+    if hiLines.size() > maxSwings
+        hiLines.shift().delete()
+if not na(swingLo)
+    loLines.push(line.new(bar_index - swingLen, swingLo, bar_index, swingLo, extend = extend.right, color = liqLoCol, style = line.style_dashed))
+    if loLines.size() > maxSwings
+        loLines.shift().delete()
+
+if bullSweep
+    label.new(bar_index, low, "swp", yloc = yloc.belowbar, style = label.style_label_up, color = color.new(color.aqua, 75), textcolor = color.aqua, size = size.tiny)
+if bearSweep
+    label.new(bar_index, high, "swp", yloc = yloc.abovebar, style = label.style_label_down, color = color.new(color.fuchsia, 75), textcolor = color.fuchsia, size = size.tiny)
+
+// ═══ Internal structure: BOS / CHoCH (tested definition) ══════════════════
+var line[]  stLines = array.new<line>()
+var label[] stLbls  = array.new<label>()
+
+stHi = ta.pivothigh(high, structLen, structLen)
+stLo = ta.pivotlow(low, structLen, structLen)
+
+var float lastSH    = na
+var float prevSH    = na
+var int   lastSHBar = na
+var float lastSL    = na
+var float prevSL    = na
+var int   lastSLBar = na
+var bool  shBroken  = true
+var bool  slBroken  = true
+if not na(stHi)
+    prevSH    := lastSH
+    lastSH    := stHi
+    lastSHBar := bar_index - structLen
+    shBroken  := false
+if not na(stLo)
+    prevSL    := lastSL
+    lastSL    := stLo
+    lastSLBar := bar_index - structLen
+    slBroken  := false
+
+bosUp = not shBroken and close > lastSH
+bosDn = not slBroken and close < lastSL
+if bosUp
+    shBroken := true
+if bosDn
+    slBroken := true
+
+var int structDir = 0
+if not na(lastSH) and close > lastSH
+    structDir := 1
+else if not na(lastSL) and close < lastSL
+    structDir := -1
+chochUp = structDir == 1 and structDir[1] == -1
+chochDn = structDir == -1 and structDir[1] == 1
+
+var bool lastWasChoch = false
+if chochUp or chochDn
+    lastWasChoch := true
+else if bosUp or bosDn
+    lastWasChoch := false
+
+if showIntLines and bosUp
+    f_mark(stLines, stLbls, lastSHBar, lastSH, chochUp ? "CHoCH" : "BOS", color.new(color.teal, 20), line.style_dotted, 30)
+if showIntLines and bosDn
+    f_mark(stLines, stLbls, lastSLBar, lastSL, chochDn ? "CHoCH" : "BOS", color.new(color.maroon, 20), line.style_dotted, 30)
+
+var box[] bullOB = array.new<box>()
+var box[] bearOB = array.new<box>()
+if useOB and bosUp
+    for i = 1 to obLookback
+        if close[i] < open[i]
+            bullOB.push(box.new(bar_index - i, high[i], bar_index, low[i], border_color = color.new(color.teal, 40), bgcolor = color.new(color.teal, 85), extend = extend.right, text = "OB", text_size = size.tiny, text_color = color.teal, text_halign = text.align_right))
+            if bullOB.size() > obMax
+                bullOB.shift().delete()
+            break
+if useOB and bosDn
+    for i = 1 to obLookback
+        if close[i] > open[i]
+            bearOB.push(box.new(bar_index - i, high[i], bar_index, low[i], border_color = color.new(color.fuchsia, 40), bgcolor = color.new(color.fuchsia, 85), extend = extend.right, text = "OB", text_size = size.tiny, text_color = color.fuchsia, text_halign = text.align_right))
+            if bearOB.size() > obMax
+                bearOB.shift().delete()
+            break
+if bullOB.size() > 0
+    for i = bullOB.size() - 1 to 0
+        if close < bullOB.get(i).get_bottom()
+            bullOB.remove(i).delete()
+if bearOB.size() > 0
+    for i = bearOB.size() - 1 to 0
+        if close > bearOB.get(i).get_top()
+            bearOB.remove(i).delete()
+
+// ═══ Major structure: MSB ═════════════════════════════════════════════════
+majHi = ta.pivothigh(high, majLen, majLen)
+majLo = ta.pivotlow(low, majLen, majLen)
+
+var float mjH       = na
+var int   mjHBar    = na
+var bool  mjHBroken = true
+var float mjL       = na
+var int   mjLBar    = na
+var bool  mjLBroken = true
+if not na(majHi)
+    mjH       := majHi
+    mjHBar    := bar_index - majLen
+    mjHBroken := false
+if not na(majLo)
+    mjL       := majLo
+    mjLBar    := bar_index - majLen
+    mjLBroken := false
+
+msbUp = not mjHBroken and close > mjH
+msbDn = not mjLBroken and close < mjL
+
+var int   majDir = 0
+var int   msbBar = na
+var float msbLvl = na
+if msbUp
+    mjHBroken := true
+    majDir    := 1
+    msbBar    := bar_index
+    msbLvl    := mjH
+    if showMSB
+        f_mark(stLines, stLbls, mjHBar, mjH, "MSB", color.new(color.teal, 0), line.style_solid, 30)
+if msbDn
+    mjLBroken := true
+    majDir    := -1
+    msbBar    := bar_index
+    msbLvl    := mjL
+    if showMSB
+        f_mark(stLines, stLbls, mjLBar, mjL, "MSB", color.new(color.maroon, 0), line.style_solid, 30)
+
+// ═══ Leg extreme + inducement (IDM) ═══════════════════════════════════════
+var float legExt   = na
+var float idm      = na
+var int   idmBar   = na
+var bool  idmTaken = false
+var line  idmLn    = na
+idmNew   = false
+idmSwept = false
+
+if msbDn or msbUp
+    legExt   := msbDn ? low : high
+    idm      := na
+    idmTaken := false
+    line.delete(idmLn)
+else if majDir == -1
+    legExt := math.min(nz(legExt, low), low)
+else if majDir == 1
+    legExt := math.max(nz(legExt, high), high)
+
+if majDir == -1 and not na(stLo) and bar_index - structLen > msbBar and stLo > legExt
+    idm      := stLo
+    idmBar   := bar_index - structLen
+    idmTaken := false
+    idmNew   := true
+if majDir == 1 and not na(stHi) and bar_index - structLen > msbBar and stHi < legExt
+    idm      := stHi
+    idmBar   := bar_index - structLen
+    idmTaken := false
+    idmNew   := true
+
+if idmNew and showIDM
+    line.delete(idmLn)
+    idmLn := line.new(idmBar, idm, bar_index, idm, extend = extend.right, color = color.new(color.orange, 10), width = 1)
+
+if not idmNew and not na(idm) and not idmTaken and (majDir == -1 ? low < idm : high > idm)
+    idmTaken := true
+    idmSwept := true
+    if not na(idmLn)
+        line.set_extend(idmLn, extend.none)
+        line.set_x2(idmLn, bar_index)
+        line.set_color(idmLn, color.new(color.gray, 40))
+
+// ═══ Fair value gaps ══════════════════════════════════════════════════════
+var box[] bullF = array.new<box>()
+var box[] bearF = array.new<box>()
+bullGap = low > high[2] and (low - high[2]) >= fvgMinAtr * atr and close[1] > open[1]
+bearGap = high < low[2] and (low[2] - high) >= fvgMinAtr * atr and close[1] < open[1]
+if useFVG
+    if bullGap
+        bullF.push(box.new(bar_index - 2, low, bar_index, high[2], border_color = color.new(color.blue, 70), bgcolor = color.new(color.blue, 88), extend = extend.right, text = "FVG", text_size = size.tiny, text_color = color.blue, text_halign = text.align_right))
+        if bullF.size() > fvgMax
+            bullF.shift().delete()
+    if bearGap
+        bearF.push(box.new(bar_index - 2, low[2], bar_index, high, border_color = color.new(color.purple, 70), bgcolor = color.new(color.purple, 88), extend = extend.right, text = "FVG", text_size = size.tiny, text_color = color.purple, text_halign = text.align_right))
+        if bearF.size() > fvgMax
+            bearF.shift().delete()
+if bullF.size() > 0
+    for i = bullF.size() - 1 to 0
+        if low <= bullF.get(i).get_bottom()
+            bullF.remove(i).delete()
+if bearF.size() > 0
+    for i = bearF.size() - 1 to 0
+        if high >= bearF.get(i).get_top()
+            bearF.remove(i).delete()
+
+// ═══ Squeeze + breakout triggers ══════════════════════════════════════════
+squeeze = useSqueeze and not na(prevSH) and not na(prevSL) and lastSH < prevSH and lastSL > prevSL and close < lastSH and close > lastSL and atr < atrAvg
+
+obTrigUp = f_minTopAbove(bearOB, close)
+obTrigDn = f_maxBotBelow(bullOB, close)
+bullTrig = not na(obTrigUp) ? obTrigUp : (lastSH > close ? lastSH : na)
+bearTrig = not na(obTrigDn) ? obTrigDn : (lastSL < close ? lastSL : na)
+
+// ═══ Zone touch, confluence grade, setup ══════════════════════════════════
+t1 = f_touch(z1Top, z1Bot)
+t2 = f_touch(z2Top, z2Bot)
+t3 = f_touch(z3Top, z3Bot)
+t4 = f_touch(z4Top, z4Bot)
+zoneHit = t4 ? 4 : t3 ? 3 : t2 ? 2 : t1 ? 1 : 0
+hitTop  = zoneHit == 4 ? z4Top : zoneHit == 3 ? z3Top : zoneHit == 2 ? z2Top : z1Top
+hitBot  = zoneHit == 4 ? z4Bot : zoneHit == 3 ? z3Bot : zoneHit == 2 ? z2Bot : z1Bot
+
+longReject  = close > open and close > hitTop
+shortReject = close < open and close < hitBot
+barOk       = not confirmOnly or barstate.isconfirmed
+
+tp1Dist   = atr * tp1M
+oppAboveF = f_obstacleAbove(bearF, close)
+oppAboveO = f_obstacleAbove(bearOB, close)
+oppBelowF = f_obstacleBelow(bullF, close)
+oppBelowO = f_obstacleBelow(bullOB, close)
+barrierL  = (not na(oppAboveF) and oppAboveF < close + tp1Dist) or (not na(oppAboveO) and oppAboveO < close + tp1Dist)
+barrierS  = (not na(oppBelowF) and oppBelowF > close - tp1Dist) or (not na(oppBelowO) and oppBelowO > close - tp1Dist)
+
+structL  = structDir == 1
+structS  = structDir == -1
+pdOkL    = usePD and inDiscount
+pdOkS    = usePD and not inDiscount
+fvgConfL = f_overlapAny(bullF, hitTop, hitBot)
+fvgConfS = f_overlapAny(bearF, hitTop, hitBot)
+sweepRecentL = not na(lastBullSweepBar) and bar_index - lastBullSweepBar <= sweepLookback
+sweepRecentS = not na(lastBearSweepBar) and bar_index - lastBearSweepBar <= sweepLookback
+obConfL  = f_overlapAny(bullOB, hitTop, hitBot)
+obConfS  = f_overlapAny(bearOB, hitTop, hitBot)
+
+infoL  = scoreObSweep ? (sweepRecentL ? 1 : 0) + (obConfL ? 1 : 0) : 0
+infoS  = scoreObSweep ? (sweepRecentS ? 1 : 0) + (obConfS ? 1 : 0) : 0
+scoreL = (structL ? 1 : 0) + (pdOkL ? 1 : 0) + (fvgConfL ? 1 : 0) + infoL - (barrierL ? 1 : 0) - (squeeze ? 1 : 0)
+scoreS = (structS ? 1 : 0) + (pdOkS ? 1 : 0) + (fvgConfS ? 1 : 0) + infoS - (barrierS ? 1 : 0) - (squeeze ? 1 : 0)
+gradeL = scoreL >= 2 ? 0 : scoreL == 1 ? 1 : 2
+gradeS = scoreS >= 2 ? 0 : scoreS == 1 ? 1 : 2
+whyL   = f_why(structL, pdOkL, fvgConfL, sweepRecentL, obConfL, scoreObSweep, barrierL, squeeze, majDir == -1)
+whyS   = f_why(structS, pdOkS, fvgConfS, sweepRecentS, obConfS, scoreObSweep, barrierS, squeeze, majDir == 1)
+minG   = minGradeIn == "A only" ? 0 : minGradeIn == "B or better" ? 1 : 2
+
+// v3.3 execution guards: entry-relative, tick-valid levels; chase + cost filters
+costPx  = close * costPct / 100
+cSL_L   = f_stop(close, atr * slAtrMult, 1)
+cT1_L   = f_tgt(close, atr * tp1M, 1)
+cSL_S   = f_stop(close, atr * slAtrMult, -1)
+cT1_S   = f_tgt(close, atr * tp1M, -1)
+netT1L  = (cT1_L - close - costPx) / (close - cSL_L)
+netT1S  = (close - cT1_S - costPx) / (cSL_S - close)
+chaseL  = (close - hitTop) / atr
+chaseS  = (hitBot - close) / atr
+chaseOkL = chaseL <= maxChase
+chaseOkS = chaseS <= maxChase
+netOkL   = netT1L >= minNetR
+netOkS   = netT1S >= minNetR
+
+rawL = zDir == 1 and zoneHit > 0 and (not requireReject or longReject)
+rawS = zDir == -1 and zoneHit > 0 and (not requireReject or shortReject) and not longOnly
+gateL = gradeL <= minG and not (blockSqueeze and squeeze) and (not useStructFilter or structL)
+gateS = gradeS <= minG and not (blockSqueeze and squeeze) and (not useStructFilter or structS)
+longSetup  = rawL and gateL and chaseOkL and netOkL and inSess
+shortSetup = rawS and gateS and chaseOkS and netOkS and inSess
+
+// ═══ POI state (start of bar) + POI trade plan ════════════════════════════
+var float poiTop   = na
+var float poiBot   = na
+var float poiMid   = na
+var int   poiDir   = 0
+var int   poiBar   = na
+var bool  poiUsed  = false
+var box   poiBox   = na
+var line  poiMidLn = na
+
+pStop = poiDir == 0 ? na : poiDir == -1 ? f_up(poiTop + poiStopBuf * atr, f_tk(poiMid)) : f_dn(poiBot - poiStopBuf * atr, f_tk(poiMid))
+idmOk = not na(idm) and not idmTaken and poiDir != 0 and (poiDir == -1 ? idm < poiMid - 0.3 * atr : idm > poiMid + 0.3 * atr)
+pTp1v = poiDir == 0 ? na : idmOk ? idm : f_tgt(poiMid, atr * tp1M, poiDir)
+float pTp2v = na
+if poiDir != 0
+    if not na(legExt) and (poiDir == -1 ? legExt < pTp1v : legExt > pTp1v)
+        pTp2v := legExt
+    else
+        pTp2v := poiDir == -1 ? f_nearestLine(loLines, pTp1v, -1) : f_nearestLine(hiLines, pTp1v, 1)
+pTp2Src = na(pTp2v) ? "ATR" : (poiDir == -1 ? "SSL" : "BSL")
+pTp2f   = poiDir == 0 ? na : na(pTp2v) ? f_tgt(poiMid, atr * tp2M, poiDir) : pTp2v
+poiAllowed = poiDir != 0 and not (longOnly and poiDir == -1)
+
+// ═══ Trade state machine + R tracking (net of costs) ══════════════════════
+var int    tDir     = 0
+var int    tType    = 0
+var int    tDay     = 0
+var float  tEntry   = na
+var float  tStop    = na
+var float  tTp1     = na
+var float  tTp2     = na
+var string tTp2Src  = "ATR"
+var bool   tp1Hit   = false
+var bool   tp2Hit   = false
+var int    tZone    = 0
+var int    tGrade   = 2
+var string tWhy     = ""
+var float  riskDist = na
+var float  tradeR   = 0.0
+var int    nTrades  = 0
+var int    nTp1     = 0
+var int    nTp2     = 0
+var int    nSL      = 0
+var int    nClosed  = 0
+var int    nWins    = 0
+var float  sumR     = 0.0
+var float[] gSum = array.from(0.0, 0.0, 0.0)
+var int[]   gN   = array.from(0, 0, 0)
+var int[]   gW   = array.from(0, 0, 0)
+var float  pSum = 0.0
+var int    pN   = 0
+var int    pW   = 0
+
+exitSL     = false
+exitBE     = false
+exitTP2    = false
+exitRunner = false
+exitBias   = false
+exitEOD    = false
+hitTp1Now  = false
+hitTp2Now  = false
+wasFlat    = tDir == 0
+
+if tDir != 0
+    d = tDir
+    float exitPx = na
+    if sessOn and timeframe.isintraday and dayKey != tDay
+        exitPx  := open
+        exitEOD := true
+    else if f_reached(tStop, -d)
+        exitPx := tStop
+        if tp2Hit
+            exitBE := true
+        else
+            exitSL := true
+            if not tp1Hit
+                nSL := nSL + 1
+    else
+        if not tp1Hit and f_reached(tTp1, d)
+            tp1Hit    := true
+            hitTp1Now := true
+            nTp1      := nTp1 + 1
+            tradeR    := tradeR + scaleOut * (tTp1 - tEntry) * d / riskDist
+        if not tp2Hit and f_reached(tTp2, d)
+            tp2Hit    := true
+            hitTp2Now := true
+            nTp2      := nTp2 + 1
+            if useRunner
+                tStop := tEntry
+            else
+                exitPx  := tTp2
+                exitTP2 := true
+        if na(exitPx)
+            biasLost  = tType == 1 ? majDir != d : (d == 1 ? not longBias : not shortBias)
+            runnerOut = tp2Hit and not hitTp2Now and (d == 1 ? close < emaF : close > emaF)
+            if runnerOut
+                exitPx     := close
+                exitRunner := true
+            else if biasLost
+                exitPx   := close
+                exitBias := true
+            else if flatNow
+                exitPx  := close
+                exitEOD := true
+    if not na(exitPx)
+        remaining = tp1Hit ? 1.0 - scaleOut : 1.0
+        tradeR  := tradeR + remaining * (exitPx - tEntry) * d / riskDist - (costPct / 100) * tEntry / riskDist
+        sumR    := sumR + tradeR
+        nClosed := nClosed + 1
+        nWins   := nWins + (tradeR > 0 ? 1 : 0)
+        if tType == 1
+            pSum := pSum + tradeR
+            pN   := pN + 1
+            pW   := pW + (tradeR > 0 ? 1 : 0)
+        else
+            gSum.set(tGrade, gSum.get(tGrade) + tradeR)
+            gN.set(tGrade, gN.get(tGrade) + 1)
+            if tradeR > 0
+                gW.set(tGrade, gW.get(tGrade) + 1)
+        tDir := 0
+
+// POI limit fill (intrabar touch of the 50% line)
+poiTouch = poiAllowed and (poiDir == -1 ? high >= poiMid : low <= poiMid)
+poiFill  = poiMode and wasFlat and poiTouch and not poiUsed and not na(pStop) and inSess and not flatNow
+
+if poiFill
+    d = poiDir
+    tDir     := d
+    tType    := 1
+    tDay     := dayKey
+    tEntry   := poiMid
+    tStop    := pStop
+    riskDist := math.abs(tEntry - tStop)
+    tTp1     := pTp1v
+    tTp2     := pTp2f
+    tTp2Src  := pTp2Src
+    tp1Hit   := false
+    tp2Hit   := false
+    tradeR   := 0.0
+    tZone    := 0
+    tWhy     := "POI limit" + (idmOk ? ", TP1 = IDM" : "")
+    poiUsed  := true
+    nTrades  := nTrades + 1
+    if f_reached(tStop, -d)
+        exitSL  := true
+        nSL     := nSL + 1
+        tradeR  := -1.0 - (costPct / 100) * tEntry / riskDist
+        sumR    := sumR + tradeR
+        nClosed := nClosed + 1
+        pSum    := pSum + tradeR
+        pN      := pN + 1
+        tDir    := 0
+
+longSig  = wasFlat and not poiFill and longSetup and barOk and not flatNow
+shortSig = wasFlat and not poiFill and shortSetup and barOk and not flatNow
+
+if longSig or shortSig
+    d = longSig ? 1 : -1
+    tDir     := d
+    tType    := 0
+    tDay     := dayKey
+    tEntry   := close
+    tStop    := d == 1 ? cSL_L : cSL_S
+    riskDist := math.abs(close - tStop)
+    tTp1     := d == 1 ? cT1_L : cT1_S
+    float liq = na
+    if d == 1
+        liq := f_nearestLine(hiLines, tTp1, 1)
+    else
+        liq := f_nearestLine(loLines, tTp1, -1)
+    useLiq   = tpMode == "Liquidity" and not na(liq) and math.abs(liq - close) <= maxLiqAtr * atr
+    tTp2    := useLiq ? liq : f_tgt(close, atr * tp2M, d)
+    tTp2Src := useLiq ? (d == 1 ? "BSL" : "SSL") : "ATR"
+    tp1Hit  := false
+    tp2Hit  := false
+    tradeR  := 0.0
+    tZone   := zoneHit
+    tGrade  := d == 1 ? gradeL : gradeS
+    tWhy    := d == 1 ? whyL : whyS
+    nTrades := nTrades + 1
+
+if poiFill
+    label.new(bar_index, poiDir == -1 ? high : low, "POI", yloc = poiDir == -1 ? yloc.abovebar : yloc.belowbar, style = poiDir == -1 ? label.style_label_down : label.style_label_up, color = color.purple, textcolor = color.white, size = size.small)
+
+inTrade = tDir != 0
+plot(inTrade ? tEntry : na, "Entry", color.new(color.gray, 20), style = plot.style_linebr)
+plot(inTrade ? tStop : na, "Stop", tp2Hit ? color.yellow : color.red, 2, plot.style_linebr)
+plot(inTrade and not tp1Hit ? tTp1 : na, "TP1", color.green, style = plot.style_linebr)
+plot(inTrade and not tp2Hit ? tTp2 : na, "TP2", color.lime, style = plot.style_linebr)
+
+if longSig or shortSig
+    isL  = longSig
+    gCol = isL ? (tGrade == 0 ? color.lime : tGrade == 1 ? color.green : color.new(color.green, 40)) : (tGrade == 0 ? color.red : tGrade == 1 ? color.maroon : color.new(color.red, 40))
+    label.new(bar_index, isL ? low : high, f_gradeTxt(tGrade), yloc = isL ? yloc.belowbar : yloc.abovebar, style = isL ? label.style_label_up : label.style_label_down, color = gCol, textcolor = tGrade == 2 ? color.white : color.black, size = tGrade == 0 ? size.normal : tGrade == 1 ? size.small : size.tiny)
+plotshape(rawL and gateL and inSess and barOk and wasFlat and not chaseOkL, "Skipped: chased", shape.xcross, location.belowbar, color.new(color.gray, 30), size = size.tiny)
+plotchar(hitTp1Now ? tTp1 : na, "TP1 hit", "•", location.absolute, color.green, size = size.small)
+plotchar(hitTp2Now ? tTp2 : na, "TP2 hit", "•", location.absolute, color.lime, size = size.small)
+plotshape(exitSL ? tStop : na, "Stop hit", shape.xcross, location.absolute, color.red, size = size.tiny)
+plotshape(exitBE ? tStop : na, "BE hit", shape.xcross, location.absolute, color.yellow, size = size.tiny)
+plotshape(exitRunner or exitBias or exitEOD ? close : na, "Runner / bias / session exit", shape.circle, location.absolute, color.yellow, size = size.tiny)
+
+// ═══ POI create / invalidate (end of bar) ═════════════════════════════════
+if usePOI and (msbDn or msbUp)
+    d = msbDn ? -1 : 1
+    int found = 0
+    for i = 1 to poiLookback
+        if (d == -1 ? close[i] > open[i] : close[i] < open[i])
+            found := i
+            break
+    if found > 0
+        float t = high[found]
+        float b = low[found]
+        int j = found + 1
+        int n = 1
+        while n < 3 and j <= poiLookback + 3 and (d == -1 ? close[j] > open[j] : close[j] < open[j])
+            t := math.max(t, high[j])
+            b := math.min(b, low[j])
+            j := j + 1
+            n := n + 1
+        poiTop  := t
+        poiBot  := b
+        poiMid  := (t + b) / 2
+        poiDir  := d
+        poiBar  := bar_index
+        poiUsed := false
+        box.delete(poiBox)
+        line.delete(poiMidLn)
+        left = bar_index - (j - 1)
+        pc = d == -1 ? color.red : color.green
+        poiBox   := box.new(left, t, bar_index, b, border_color = color.new(pc, 20), border_width = 2, bgcolor = color.new(pc, 85), extend = extend.right, text = "POI", text_size = size.tiny, text_color = pc, text_halign = text.align_right)
+        poiMidLn := line.new(left, poiMid, bar_index, poiMid, extend = extend.right, style = line.style_dashed, color = color.new(pc, 20))
+
+poiDead = poiDir != 0 and ((poiDir == -1 and close > poiTop) or (poiDir == 1 and close < poiBot) or bar_index - poiBar > poiMaxBars)
+if poiDead
+    poiDir := 0
+    box.delete(poiBox)
+    line.delete(poiMidLn)
+
+// ═══ Analyst levels: tags + extension ═════════════════════════════════════
+intBSL  = not shBroken and lastSH > close ? lastSH : na
+lineBSL = f_nearestLine(hiLines, close, 1)
+bslTag  = majDir == 1 and legExt > close ? legExt : na(intBSL) ? lineBSL : na(lineBSL) ? intBSL : math.min(intBSL, lineBSL)
+intSSL  = not slBroken and lastSL < close ? lastSL : na
+lineSSL = f_nearestLine(loLines, close, -1)
+sslTag  = majDir == -1 and legExt < close ? legExt : na(intSSL) ? lineSSL : na(lineSSL) ? intSSL : math.max(intSSL, lineSSL)
+
+legStart = poiDir != 0 and poiDir == majDir ? (majDir == -1 ? poiTop : poiBot) : msbLvl
+extLvl   = majDir != 0 and not na(legExt) and not na(legStart) ? legExt + majDir * math.abs(legStart - legExt) * extMult : na
+
+var label tgB = na
+var label tgS = na
+var label tgP = na
+var label tgI = na
+var label tgE = na
+if showTags and barstate.islast
+    tgB := f_tag(tgB, bslTag, "BSL", color.maroon)
+    tgS := f_tag(tgS, sslTag, "SSL", color.olive)
+    tgP := f_tag(tgP, poiDir != 0 ? poiMid : na, "POI 50%", poiDir == -1 ? color.red : color.green)
+    tgI := f_tag(tgI, not na(idm) and not idmTaken ? idm : na, "IDM", color.orange)
+    tgE := f_tag(tgE, extLvl, "Ext", color.gray)
+
+// ═══ Scenario path ════════════════════════════════════════════════════════
+var polyline pathPl = na
+var label    pathLb = na
+if showPath and barstate.islast
+    polyline.delete(pathPl)
+    label.delete(pathLb)
+    pathOk = majDir != 0 and not na(legExt) and not na(extLvl) and (poiDir != majDir or (majDir == -1 ? close < poiTop : close > poiBot))
+    if pathOk
+        dd  = majDir
+        pts = array.new<chart.point>()
+        int   x = bar_index
+        float y = close
+        pts.push(chart.point.from_index(x, y))
+        if poiDir == dd
+            lvl1 = dd == -1 ? (close < poiMid ? poiMid : poiTop) : (close > poiMid ? poiMid : poiBot)
+            if (dd == -1 ? lvl1 > y : lvl1 < y)
+                x := x + f_bars(lvl1 - y, atr)
+                y := lvl1
+                pts.push(chart.point.from_index(x, y))
+        if not na(idm) and not idmTaken and (dd == -1 ? idm < y : idm > y)
+            y2 = idm + dd * 0.3 * atr
+            x := x + f_bars(y2 - y, atr)
+            y := y2
+            pts.push(chart.point.from_index(x, y))
+            x := x + 2
+            y := idm - dd * 0.2 * atr
+            pts.push(chart.point.from_index(x, y))
+        if (dd == -1 ? legExt < y : legExt > y)
+            x := x + f_bars(legExt - y, atr)
+            y := legExt
+            pts.push(chart.point.from_index(x, y))
+        x := x + f_bars(extLvl - y, atr)
+        pts.push(chart.point.from_index(x, extLvl))
+        pathPl := polyline.new(pts, line_color = color.new(dd == -1 ? color.red : color.green, 20), line_style = line.style_dashed, line_width = 2)
+        pathLb := label.new(x, extLvl, "Scenario, not forecast", style = dd == -1 ? label.style_label_up : label.style_label_down, color = color.new(color.gray, 30), textcolor = color.white, size = size.tiny)
+
+// ═══ Daily pivots + PDH/PDL ═══════════════════════════════════════════════
+[pdh, pdl, pdc] = request.security(syminfo.tickerid, "D", [high[1], low[1], close[1]], lookahead = barmerge.lookahead_on)
+dOpen   = request.security(syminfo.tickerid, "D", open, lookahead = barmerge.lookahead_on)
+pvtLive = showPivots and timeframe.isintraday
+pvtOn   = pvtLive and not timeframe.change("D")
+pp = (pdh + pdl + pdc) / 3
+r1 = 2 * pp - pdl
+s1 = 2 * pp - pdh
+r2 = pp + (pdh - pdl)
+s2 = pp - (pdh - pdl)
+
+plot(pvtOn ? pp  : na, "PP",  color.new(color.gray, 30),   style = plot.style_linebr)
+plot(pvtOn ? r1  : na, "R1",  color.new(color.red, 50),    style = plot.style_linebr)
+plot(pvtOn ? s1  : na, "S1",  color.new(color.green, 50),  style = plot.style_linebr)
+plot(pvtOn ? r2  : na, "R2",  color.new(color.red, 65),    style = plot.style_linebr)
+plot(pvtOn ? s2  : na, "S2",  color.new(color.green, 65),  style = plot.style_linebr)
+plot(pvtOn ? pdh : na, "PDH", color.new(color.orange, 20), style = plot.style_linebr)
+plot(pvtOn ? pdl : na, "PDL", color.new(color.orange, 20), style = plot.style_linebr)
+
+// ═══ Dashboard ════════════════════════════════════════════════════════════
+dashPosC = dashPos == "Top left" ? position.top_left : dashPos == "Bottom right" ? position.bottom_right : dashPos == "Bottom left" ? position.bottom_left : position.top_right
+txtSz    = dashSize == "Tiny" ? size.tiny : dashSize == "Normal" ? size.normal : size.small
+var table dash = table.new(dashPosC, 2, 12, bgcolor = color.new(color.black, 20), frame_color = color.new(color.gray, 60), frame_width = 1, border_width = 0)
+
+if showDash and barstate.islast
+    d0      = tDir != 0 ? tDir : zDir
+    dirWord = d0 == 1 ? "BUY" : "SELL"
+    avgR    = nClosed > 0 ? sumR / nClosed : na
+    winPct  = nClosed > 0 ? 100.0 * nWins / nClosed : na
+    badEdge = nClosed >= minTrades and avgR < -0.05
+    atPOI   = poiAllowed and high >= poiBot and low <= poiTop
+    tkNow   = f_tk(close)
+
+    // Trend
+    string whyTxt = "No trend: EMAs tangled\nChoppy market, signals unreliable"
+    if zDir == 1
+        whyTxt := "Uptrend: EMA" + str.tostring(emaFastLen) + " above EMA" + str.tostring(emaSlowLen) + (htfOn ? "\nHigher timeframe agrees" : "")
+    else if zDir == -1
+        whyTxt := "Downtrend: EMA" + str.tostring(emaFastLen) + " below EMA" + str.tostring(emaSlowLen) + (htfOn ? "\nHigher timeframe agrees" : "") + (longOnly ? "\nLong only: no trades" : "")
+    else if emaF > emaS and htfOn and not htfBull
+        whyTxt := "Chart up, higher TF down\nMixed signals, skip"
+    else if emaF < emaS and htfOn and not htfBear
+        whyTxt := "Chart down, higher TF up\nMixed signals, skip"
+
+    // Structure
+    zoneTxt   = usePD ? (inDiscount ? " · discount" : " · premium") : ""
+    structTxt = (structDir == 1 ? "Bullish" : structDir == -1 ? "Bearish" : "Undefined") + (structDir != 0 ? (lastWasChoch ? " (CHoCH)" : " (BOS)") : "") + zoneTxt + (squeeze ? "\n⚠ Squeeze: lower highs + higher lows" : "") + "\nBull > " + f_px(bullTrig) + " · Bear < " + f_px(bearTrig)
+    structCol = structDir == 0 ? color.gray : zDir == 0 ? color.white : structDir == zDir ? color.lime : color.orange
+
+    // Analyst view
+    string anTxt = "No major break yet"
+    color  anCol = color.gray
+    if majDir != 0
+        anTxt := "MSB " + (majDir == 1 ? "▲ " : "▼ ") + f_px(msbLvl) + " (" + str.tostring(bar_index - msbBar) + " bars ago)"
+        anTxt := anTxt + "\nPOI " + (poiDir == majDir ? f_px(poiBot) + " – " + f_px(poiTop) + " · 50% " + f_px(poiMid) + (poiUsed ? " (used)" : "") : "none / invalidated")
+        anTxt := anTxt + "\nIDM " + (na(idm) ? "not formed" : f_px(idm) + (idmTaken ? " taken" : " intact")) + " · " + (majDir == -1 ? "SSL " + f_px(sslTag) : "BSL " + f_px(bslTag)) + " · ext " + f_px(extLvl)
+        anCol := majDir == 1 ? color.lime : color.red
+
+    // Zones relative to price
+    tops = array.from(z1Top, z2Top, z3Top, z4Top)
+    bots = array.from(z1Bot, z2Bot, z3Bot, z4Bot)
+    int insideK = 0
+    int nextK   = 0
+    if zDir != 0
+        for k = 0 to 3
+            zt = tops.get(k)
+            zb = bots.get(k)
+            if insideK == 0 and close >= zb and close <= zt
+                insideK := k + 1
+            if nextK == 0 and (zDir == 1 ? zt < close : zb > close)
+                nextK := k + 1
+    distZ1   = zDir == 1 ? (close - z1Top) / atr : zDir == -1 ? (z1Bot - close) / atr : na
+    gradeNow = zDir == 1 ? gradeL : gradeS
+    whyNow   = zDir == 1 ? whyL : whyS
+    rawNow   = zDir == 1 ? rawL : zDir == -1 ? rawS : false
+    gateNow  = zDir == 1 ? gateL : gateS
+    chaseNow = zDir == 1 ? chaseL : chaseS
+    chaseOk  = zDir == 1 ? chaseOkL : chaseOkS
+    netNow   = zDir == 1 ? netT1L : netT1S
+    netOk    = zDir == 1 ? netOkL : netOkS
+    setupNow = longSetup or shortSetup
+    gapGo    = pvtLive and zDir == 1 and dOpen > pdh and close > z1Top
+
+    // Verdict
+    string vTxt = ""
+    color  vCol = color.gray
+    if tDir != 0
+        openR = tradeR + (tp1Hit ? 1.0 - scaleOut : 1.0) * (close - tEntry) * tDir / riskDist - (costPct / 100) * tEntry / riskDist
+        side  = (tDir == 1 ? "LONG" : "SHORT") + (tType == 1 ? " · POI" : " · Grade " + f_gradeTxt(tGrade))
+        rTxt  = " (" + f_sgn(openR) + "R net)"
+        if tp2Hit
+            vTxt := "🏃 HOLD RUNNER" + rTxt + "\nStop at breakeven = risk-free"
+            vCol := color.lime
+        else if tp1Hit
+            vTxt := "🟢 " + side + ", TP1 banked" + rTxt + "\nHold for TP2 (" + tTp2Src + "), keep the stop"
+            vCol := color.lime
+        else if openR < 0
+            vTxt := "🟠 " + side + ", underwater" + rTxt + "\nRespect the stop. Don't average down."
+            vCol := color.orange
+        else
+            vTxt := "🟢 " + side + rTxt + "\nHold. Stop and targets on chart."
+            vCol := color.lime
+        if sessOn and flatNow
+            vTxt := vTxt + "\n⏰ Session end: flatten"
+    else if longSig or shortSig
+        vTxt := "✅ " + dirWord + " SIGNAL · Z" + str.tostring(zoneHit) + " · Grade " + f_gradeTxt(tGrade) + "\n" + tWhy + (badEdge ? "\n⚠ Setup lost money on this chart" : "")
+        vCol := badEdge or tGrade == 2 ? color.orange : color.lime
+    else if longOnly and zDir == -1
+        vTxt := "⏸ DOWNTREND · long only\nNo buys. Exit any long you hold."
+        vCol := color.gray
+    else if sessOn and (flatNow or not inSess)
+        vTxt := "⏰ OUTSIDE ENTRY WINDOW\nNo new trades until " + str.substring(entrySess, 0, 4)
+        vCol := color.gray
+    else if atPOI
+        vTxt := "🎯 AT POI · " + (poiDir == -1 ? "bearish" : "bullish") + " OB retest\n" + (poiMode and not poiUsed ? "Limit fills at 50% " + f_px(poiMid) : "Wait for a zone signal / rejection") + (idmOk ? "\nIDM " + f_px(idm) + " is the first target" : "")
+        vCol := color.yellow
+    else if squeeze
+        vTxt := "⏸ SQUEEZE · wait for breakout\nLong only above " + f_px(bullTrig) + (longOnly ? "" : "\nShort only below " + f_px(bearTrig))
+        vCol := color.silver
+    else if zDir == 0
+        vTxt := "⏸ WAIT · no clear trend\nStay out. Cash is a position."
+        vCol := color.gray
+    else if rawNow and gateNow and not chaseOk
+        vTxt := "⏭ SKIP · chased\nClose is " + str.tostring(chaseNow, "#.0") + " ATR past the zone (max " + str.tostring(maxChase, "#.0#") + ")"
+        vCol := color.gray
+    else if rawNow and gateNow and not netOk
+        vTxt := "⏭ SKIP · TP1 too small after costs\nNet TP1 " + f_sgn(netNow) + "R (min " + str.tostring(minNetR, "#.0#") + "R)"
+        vCol := color.gray
+    else if setupNow and not barOk
+        vTxt := "⏳ SIGNAL FORMING · Z" + str.tostring(zoneHit) + " · Grade " + f_gradeTxt(gradeNow) + "\nConfirm only at candle close"
+        vCol := color.yellow
+    else if rawNow and not setupNow
+        vTxt := "⏭ SKIP · Grade " + f_gradeTxt(gradeNow) + " setup filtered\n" + whyNow
+        vCol := color.gray
+    else if zoneHit > 0
+        vTxt := "👀 GET READY · in Zone " + str.tostring(zoneHit) + "\nWait for a " + (zDir == 1 ? "green" : "red") + " candle to close"
+        vCol := color.yellow
+    else if nextK == 0 and insideK == 0
+        vTxt := "⚠ WAIT · price broke past all zones\nTrend may be failing"
+        vCol := color.orange
+    else if gapGo
+        vTxt := "🚀 TREND DAY · opened above PDH\nNo pullback likely. Don't chase; skip today."
+        vCol := color.aqua
+    else if distZ1 <= 0.5
+        vTxt := "👀 WATCH · near " + (zDir == 1 ? "buy" : "sell") + " zone\nSet an alert. Don't jump early."
+        vCol := color.yellow
+    else
+        vTxt := "⏳ WAIT for pullback\n" + (zDir == 1 ? "Uptrend" : "Downtrend") + " but price is stretched. Don't chase."
+        vCol := color.aqua
+
+    // Plan: zone + trigger + entry-relative levels (indicative at the first valid tick past the zone)
+    string planTxt = "No plan without a trend"
+    if tDir != 0
+        planTxt := "Entry " + f_px(tEntry) + " · SL " + f_px(tStop) + "\nTP1 " + f_px(tTp1) + " · TP2 " + f_px(tTp2) + " (" + tTp2Src + ")"
+    else if longOnly and zDir == -1
+        planTxt := "Long only: wait for the uptrend to return"
+    else if poiMode and poiAllowed and not poiUsed
+        planTxt := (poiDir == -1 ? "Sell" : "Buy") + " limit " + f_px(poiMid) + " · SL " + f_px(pStop) + "\nTP1 " + f_px(pTp1v) + (idmOk ? " (IDM)" : " (ATR)") + " · TP2 " + f_px(pTp2f) + " (" + pTp2Src + ")"
+    else if squeeze
+        planTxt := "Breakout plan:\nLong above " + f_px(bullTrig) + (longOnly ? "" : " · Short below " + f_px(bearTrig))
+    else if zDir != 0
+        kk = insideK > 0 ? insideK : nextK
+        if kk > 0
+            zt   = tops.get(kk - 1)
+            zb   = bots.get(kk - 1)
+            edge = zDir == 1 ? zt : zb
+            trig = zDir == 1 ? f_up(zt, tkNow) + (f_up(zt, tkNow) == zt ? tkNow : 0) : f_dn(zb, tkNow) - (f_dn(zb, tkNow) == zb ? tkNow : 0)
+            maxE = zDir == 1 ? f_dn(zt + maxChase * atr, tkNow) : f_up(zb - maxChase * atr, tkNow)
+            iSL  = f_stop(trig, atr * slAtrMult, zDir)
+            iT1  = f_tgt(trig, atr * tp1M, zDir)
+            float zLiq = na
+            if zDir == 1
+                zLiq := f_nearestLine(hiLines, iT1, 1)
+            else
+                zLiq := f_nearestLine(loLines, iT1, -1)
+            zUseLiq = tpMode == "Liquidity" and not na(zLiq) and math.abs(zLiq - trig) <= maxLiqAtr * atr
+            iT2  = zUseLiq ? zLiq : f_tgt(trig, atr * tp2M, zDir)
+            iNet = (math.abs(iT1 - trig) - trig * costPct / 100) / math.abs(trig - iSL)
+            planTxt := dirWord + " zone Z" + str.tostring(kk) + ": " + f_px(f_dn(zb, tkNow)) + " – " + f_px(f_up(zt, tkNow)) + "\nTrigger: " + (zDir == 1 ? "green" : "red") + " close " + f_px(trig) + " to " + f_px(maxE)
+            planTxt := planTxt + "\nAt " + f_px(trig) + ": SL " + f_px(iSL) + " · TP1 " + f_px(iT1) + " · TP2 " + f_px(iT2) + (zUseLiq ? (zDir == 1 ? " (BSL)" : " (SSL)") : " (ATR)")
+            planTxt := planTxt + "\nLevels move with the actual entry · net TP1 " + f_sgn(iNet) + "R" + (iNet < minNetR ? " ⚠ below min" : "")
+        else
+            planTxt := "No valid zone. Stand aside."
+
+    // Size + cost
+    stopDist = tDir != 0 ? riskDist : (poiMode and poiAllowed and not poiUsed) ? math.abs(poiMid - pStop) : math.abs(close - (zDir == -1 ? cSL_S : cSL_L))
+    riskAmt  = acctSize * riskPct / 100
+    qtyRaw   = stopDist > 0 ? riskAmt / stopDist : na
+    qtyCap   = acctSize / close
+    qty      = math.floor(math.min(qtyRaw, qtyCap))
+    qtyLot   = bursaTk ? math.floor(qty / 100) * 100 : qty
+    costR    = stopDist > 0 ? (close * costPct / 100) / stopDist : na
+    sizeTxt  = str.tostring(qtyLot) + " units" + (bursaTk ? " (" + str.tostring(qtyLot / 100) + " lots)" : "") + (qtyRaw > qtyCap ? " (capped by account)" : "") + "\n1R = " + syminfo.currency + " " + str.tostring(riskAmt, "#,##0.00") + " · cost ≈ " + str.tostring(costR, "#.00") + "R per trade"
+
+    // Liquidity
+    bullRecent = not na(lastBullSweepBar) and (na(lastBearSweepBar) or lastBullSweepBar >= lastBearSweepBar)
+    bearRecent = not na(lastBearSweepBar) and not bullRecent
+    string swTxt = "No sweep yet"
+    if bullRecent
+        swTxt := "Swept SSL " + f_px(lastBullSweepLvl) + ", " + str.tostring(bar_index - lastBullSweepBar) + " bars ago (info only)"
+    else if bearRecent
+        swTxt := "Swept BSL " + f_px(lastBearSweepLvl) + ", " + str.tostring(bar_index - lastBearSweepBar) + " bars ago (info only)"
+    liqTxt = "BSL " + f_px(bslTag) + " · SSL " + f_px(sslTag) + "\n" + swTxt
+
+    // Levels
+    names = array.from("PDH", "PDL", "PP", "R1", "S1", "R2", "S2")
+    vals  = array.from(pdh, pdl, pp, r1, s1, r2, s2)
+    float  resV = na
+    string resN = ""
+    float  supV = na
+    string supN = ""
+    if pvtLive
+        for i = 0 to 6
+            v = vals.get(i)
+            if not na(v)
+                if v > close and (na(resV) or v < resV)
+                    resV := v
+                    resN := names.get(i)
+                if v < close and (na(supV) or v > supV)
+                    supV := v
+                    supN := names.get(i)
+    if not na(oppAboveF) and (na(resV) or oppAboveF < resV)
+        resV := oppAboveF
+        resN := "Bear FVG"
+    if not na(oppAboveO) and (na(resV) or oppAboveO < resV)
+        resV := oppAboveO
+        resN := "Bear OB"
+    if not na(oppBelowF) and (na(supV) or oppBelowF > supV)
+        supV := oppBelowF
+        supN := "Bull FVG"
+    if not na(oppBelowO) and (na(supV) or oppBelowO > supV)
+        supV := oppBelowO
+        supN := "Bull OB"
+    target = tDir != 0 ? (tp1Hit ? tTp2 : tTp1) : close + d0 * atr * tp1M
+    string lvlTxt = "No key levels nearby"
+    color  lvlCol = color.white
+    if d0 == 1 and not na(resV)
+        blocked = resV < target
+        lvlTxt := (blocked ? "⚠ " : "✔ ") + resN + " " + f_px(resV) + " above (" + str.tostring((resV - close) / atr, "#.0") + " ATR)" + (blocked ? "\nBarrier before target, may stall" : "\nRoom to reach target")
+        lvlCol := blocked ? color.orange : color.lime
+    else if d0 == -1 and not na(supV)
+        blocked = supV > target
+        lvlTxt := (blocked ? "⚠ " : "✔ ") + supN + " " + f_px(supV) + " below (" + str.tostring((close - supV) / atr, "#.0") + " ATR)" + (blocked ? "\nBarrier before target, may stall" : "\nRoom to reach target")
+        lvlCol := blocked ? color.orange : color.lime
+    else if d0 == 0
+        lvlTxt := "Res " + (na(resV) ? "–" : resN + " " + f_px(resV)) + "\nSup " + (na(supV) ? "–" : supN + " " + f_px(supV))
+
+    // Volatility
+    volR   = atr / atrAvg
+    volTxt = volR > 1.5 ? "⚠ High (" + str.tostring(volR, "#.0") + "× normal)\nBig swings. Cut size." : volR < 0.7 ? "Quiet (" + str.tostring(volR, "#.0") + "× normal)\nMoves may be small" : "Normal (" + str.tostring(volR, "#.0") + "× avg)"
+    volCol = volR > 1.5 ? color.orange : color.white
+
+    // Track record (net of costs)
+    string edgeTxt = ""
+    color  edgeCol = color.gray
+    if nClosed < minTrades
+        edgeTxt := "⚠ Only " + str.tostring(nClosed) + " closed trades\nToo few to judge. Paper-trade first."
+        edgeCol := color.orange
+    else if avgR > 0.05
+        edgeTxt := "✅ Worked here: " + f_sgn(avgR) + "R net per trade\nWin " + str.tostring(winPct, "#") + "% over " + str.tostring(nClosed) + " trades"
+        edgeCol := color.lime
+    else if avgR < -0.05
+        edgeTxt := "❌ Lost here: " + f_sgn(avgR) + "R net per trade\nTweak settings or skip this chart"
+        edgeCol := color.red
+    else
+        edgeTxt := "➖ About breakeven (" + f_sgn(avgR) + "R net)\nNo real edge on this chart"
+        edgeCol := color.gray
+
+    string gTxt = ""
+    for g = 0 to 2
+        n = gN.get(g)
+        gLine = f_gradeTxt(g) + ": " + (n > 0 ? f_sgn(gSum.get(g) / n) + "R · win " + str.tostring(100.0 * gW.get(g) / n, "#") + "% (" + str.tostring(n) + ")" : "no trades")
+        gTxt := gTxt + (g > 0 ? "\n" : "") + gLine
+    if poiMode or pN > 0
+        gTxt := gTxt + "\nPOI: " + (pN > 0 ? f_sgn(pSum / pN) + "R · win " + str.tostring(100.0 * pW / pN, "#") + "% (" + str.tostring(pN) + ")" : "no trades")
+
+    f_row(dash, 0, "Signal", vTxt, vCol, txtSz)
+    table.cell_set_bgcolor(dash, 1, 0, color.new(vCol, 80))
+    f_row(dash, 1, "Trend", whyTxt, zDir == 1 ? color.lime : zDir == -1 ? color.red : color.gray, txtSz)
+    f_row(dash, 2, "Structure", structTxt, structCol, txtSz)
+    f_row(dash, 3, "Analyst view", anTxt, anCol, txtSz)
+    f_row(dash, 4, "Plan", planTxt, color.white, txtSz)
+    f_row(dash, 5, "Size", sizeTxt, color.white, txtSz)
+    f_row(dash, 6, "Liquidity", liqTxt, color.white, txtSz)
+    f_row(dash, 7, "Levels", lvlTxt, lvlCol, txtSz)
+    f_row(dash, 8, "Volatility", volTxt, volCol, txtSz)
+    f_row(dash, 9, "Track record", edgeTxt, edgeCol, txtSz)
+    f_row(dash, 10, "By grade", gTxt, color.silver, txtSz)
+    f_row(dash, 11, "Note", (isBursa ? "Preset: Bursa intraday · " : "") + "Stats net of " + str.tostring(costPct, "#.00") + "% cost.\nIndicator readout, not advice.", color.gray, txtSz)
+
+// ═══ Alerts ═══════════════════════════════════════════════════════════════
+sqBreakUp   = squeeze[1] and not na(bullTrig[1]) and close > bullTrig[1]
+sqBreakDn   = squeeze[1] and not na(bearTrig[1]) and close < bearTrig[1]
+poiTouchNow = poiAllowed and high >= poiBot and low <= poiTop
+poiFirst    = poiTouchNow and not poiTouchNow[1]
+
+alertcondition(longSig,  "Long Zone Entry",  "SZones: LONG entry on {{ticker}} @ {{close}}")
+alertcondition(shortSig, "Short Zone Entry", "SZones: SHORT entry on {{ticker}} @ {{close}}")
+alertcondition(longSig and tGrade == 0,  "A-grade Long",  "SZones: A-grade LONG on {{ticker}} @ {{close}}")
+alertcondition(shortSig and tGrade == 0, "A-grade Short", "SZones: A-grade SHORT on {{ticker}} @ {{close}}")
+alertcondition(exitSL or exitBE or exitTP2 or exitRunner or exitBias or exitEOD, "Trade Exit", "SZones: trade exit on {{ticker}}")
+alertcondition(chochUp or chochDn, "Structure Flip (CHoCH)", "SZones: internal structure flipped on {{ticker}}")
+alertcondition(msbUp, "MSB Up",   "SZones: major structure broke UP on {{ticker}}")
+alertcondition(msbDn, "MSB Down", "SZones: major structure broke DOWN on {{ticker}}")
+alertcondition(poiFirst, "POI Touched", "SZones: price reached the POI on {{ticker}} @ {{close}}")
+alertcondition(idmSwept, "IDM Taken", "SZones: inducement taken on {{ticker}} @ {{close}}")
+alertcondition(poiFill, "POI Limit Filled", "SZones: POI limit filled on {{ticker}}")
+alertcondition(sqBreakUp, "Squeeze Breakout Up",   "SZones: squeeze broke UP on {{ticker}} @ {{close}}")
+alertcondition(sqBreakDn, "Squeeze Breakout Down", "SZones: squeeze broke DOWN on {{ticker}} @ {{close}}")
+
+if longSig or shortSig
+    alert((longSig ? "LONG " : "SHORT ") + syminfo.ticker + " Z" + str.tostring(zoneHit) + " Grade " + f_gradeTxt(tGrade) +
+         " [" + tWhy + "] @ " + f_px(close) +
+         " | SL " + f_px(tStop) +
+         " | TP1 " + f_px(tTp1) +
+         " | TP2 " + f_px(tTp2) + " (" + tTp2Src + ")" +
+         " | cost " + str.tostring((costPct / 100) * close / riskDist, "#.00") + "R", alert.freq_once_per_bar_close)
+if poiFill
+    alert("POI " + (tDir == -1 ? "SHORT " : tDir == 1 ? "LONG " : "STOPPED ") + syminfo.ticker +
+         " @ " + f_px(tEntry) +
+         " | SL " + f_px(tStop) +
+         " | TP1 " + f_px(tTp1) +
+         " | TP2 " + f_px(tTp2) + " (" + tTp2Src + ")", alert.freq_once_per_bar)
+// ═══════════════════════════════════════════════════════════════════════════
+//  AI BRIDGE add-on (v3.3.2) · paste at the very END of SZones v3.3.1
+//  Sends a compact JSON snapshot to a webhook relay that asks Claude for a
+//  second opinion and forwards it to Telegram. Pine itself cannot call Claude.
+//  Alert setup: Condition = SZones → "Any alert() function call",
+//  Webhook URL = your relay URL. Plain-text SZones alerts are ignored by the relay.
+// ═══════════════════════════════════════════════════════════════════════════
+grpAI    = "AI bridge (webhook)"
+aiOn     = input.bool(false, "Send JSON snapshots for Claude review", group = grpAI, tooltip = "Needs a TradingView plan with webhooks and the Google Apps Script relay.")
+aiSecret = input.string("change-me", "Shared secret (must match relay)", group = grpAI)
+aiWatch  = input.bool(true, "Also send when price nears / enters a zone", group = grpAI, tooltip = "Gives Claude a look before the signal candle closes. More calls.")
+aiPOI    = input.bool(false, "Also send when price first touches the POI", group = grpAI)
+
+f_n(float x) => na(x) ? "null" : str.tostring(x, "0.######")
+f_b(bool b) => b ? "true" : "false"
+f_q(string s) => "\"" + str.replace_all(str.replace_all(s, "\\", "/"), "\"", "'") + "\""
+
+var int aiEntryTime = na
+var int aiDir       = 0
+if longSig or shortSig or poiFill
+    aiEntryTime := time
+    aiDir       := longSig ? 1 : shortSig ? -1 : poiDir
+
+aiExit    = exitSL or exitBE or exitTP2 or exitRunner or exitBias or exitEOD
+aiExitTxt = exitSL ? "SL" : exitBE ? "BE" : exitTP2 ? "TP2" : exitRunner ? "RUNNER" : exitBias ? "TREND" : exitEOD ? "SESSION" : ""
+aiDist    = zDir == 1 ? (close - z1Top) / atr : zDir == -1 ? (z1Bot - close) / atr : na
+aiNear    = zDir != 0 and not (longOnly and zDir == -1) and tDir == 0 and inSess and (zoneHit > 0 or aiDist <= 0.5)
+aiWatchGo = aiWatch and aiNear and not aiNear[1]
+
+// indicative plan at the first valid tick past the zone being approached
+aiTk   = f_tk(close)
+aiTop  = zoneHit > 0 ? hitTop : z1Top
+aiBot  = zoneHit > 0 ? hitBot : z1Bot
+aiTrig = zDir == 1 ? f_up(aiTop, aiTk) + (f_up(aiTop, aiTk) == aiTop ? aiTk : 0) : zDir == -1 ? f_dn(aiBot, aiTk) - (f_dn(aiBot, aiTk) == aiBot ? aiTk : 0) : na
+aiMaxE = zDir == 1 ? f_dn(aiTop + maxChase * atr, aiTk) : zDir == -1 ? f_up(aiBot - maxChase * atr, aiTk) : na
+aiSL   = zDir != 0 ? f_stop(aiTrig, atr * slAtrMult, zDir) : na
+aiT1   = zDir != 0 ? f_tgt(aiTrig, atr * tp1M, zDir) : na
+aiNet  = zDir != 0 ? (math.abs(aiT1 - aiTrig) - aiTrig * costPct / 100) / math.abs(aiTrig - aiSL) : na
+
+f_gstat(int g) => gN.get(g) > 0 ? "[" + str.tostring(gN.get(g)) + "," + f_n(gSum.get(g) / gN.get(g)) + "]" : "[0,null]"
+
+f_payload(string evt) =>
+    dirNow = evt == "WATCH" ? zDir : aiDir
+    grd    = evt == "SIGNAL" or evt == "EXIT" ? (tType == 1 ? "POI" : f_gradeTxt(tGrade)) : f_gradeTxt(zDir == 1 ? gradeL : gradeS)
+    why    = evt == "SIGNAL" or evt == "EXIT" ? tWhy : (zDir == 1 ? whyL : whyS)
+    s = "{\"secret\":" + f_q(aiSecret) + ",\"v\":\"3.3.3\",\"event\":\"" + evt + "\""
+    s := s + ",\"id\":" + f_q(syminfo.ticker + "-" + str.tostring(aiEntryTime)) + ",\"ticker\":" + f_q(syminfo.ticker) + ",\"tf\":" + f_q(timeframe.period)
+    s := s + ",\"time\":" + f_q(str.format_time(time_close, "yyyy-MM-dd HH:mm", tz)) + ",\"price\":" + f_n(close) + ",\"dir\":" + str.tostring(dirNow)
+    s := s + ",\"grade\":" + f_q(grd) + ",\"reasons\":" + f_q(why)
+    s := s + ",\"trend\":{\"bias\":" + str.tostring(zDir) + ",\"htf_on\":" + f_b(htfOn) + ",\"htf_bull\":" + f_b(htfBull) + ",\"struct\":" + str.tostring(structDir) + ",\"choch\":" + f_b(lastWasChoch) + ",\"discount\":" + f_b(inDiscount) + ",\"squeeze\":" + f_b(squeeze) + "}"
+    s := s + ",\"zones\":{\"hit\":" + str.tostring(zoneHit) + ",\"z1\":[" + f_n(z1Bot) + "," + f_n(z1Top) + "],\"z2\":[" + f_n(z2Bot) + "," + f_n(z2Top) + "],\"z3\":[" + f_n(z3Bot) + "," + f_n(z3Top) + "],\"z4\":[" + f_n(z4Bot) + "," + f_n(z4Top) + "],\"dist_z1_atr\":" + f_n(aiDist) + "}"
+    s := s + ",\"plan\":{\"trigger\":" + f_n(aiTrig) + ",\"max_entry\":" + f_n(aiMaxE) + ",\"sl\":" + f_n(aiSL) + ",\"tp1\":" + f_n(aiT1) + ",\"net_tp1_r\":" + f_n(aiNet) + "}"
+    s := s + ",\"trade\":{\"entry\":" + f_n(tEntry) + ",\"sl\":" + f_n(tStop) + ",\"tp1\":" + f_n(tTp1) + ",\"tp2\":" + f_n(tTp2) + ",\"tp2_src\":" + f_q(tTp2Src) + ",\"tp1_hit\":" + f_b(tp1Hit) + ",\"tp2_hit\":" + f_b(tp2Hit) + ",\"r\":" + f_n(tradeR) + ",\"exit\":" + f_q(aiExitTxt) + "}"
+    s := s + ",\"smc\":{\"maj\":" + str.tostring(majDir) + ",\"msb\":" + f_n(msbLvl) + ",\"poi\":[" + f_n(poiDir != 0 ? poiBot : na) + "," + f_n(poiDir != 0 ? poiTop : na) + "],\"idm\":" + f_n(idmTaken ? na : idm) + ",\"leg_ext\":" + f_n(legExt) + ",\"ext\":" + f_n(extLvl) + ",\"bsl\":" + f_n(bslTag) + ",\"ssl\":" + f_n(sslTag) + "}"
+    s := s + ",\"levels\":{\"pdh\":" + f_n(pdh) + ",\"pdl\":" + f_n(pdl) + "},\"atr\":" + f_n(atr) + ",\"atr_ratio\":" + f_n(atr / atrAvg)
+    s := s + ",\"stats\":{\"n\":" + str.tostring(nClosed) + ",\"avg_r\":" + f_n(nClosed > 0 ? sumR / nClosed : na) + ",\"A\":" + f_gstat(0) + ",\"B\":" + f_gstat(1) + ",\"C\":" + f_gstat(2) + "}"
+    s := s + ",\"cost_pct\":" + f_n(costPct) + ",\"long_only\":" + f_b(longOnly) + "}"
+    s
+
+if aiOn and barstate.isconfirmed
+    if longSig or shortSig
+        alert(f_payload("SIGNAL"), alert.freq_once_per_bar_close)
+    if aiExit
+        alert(f_payload("EXIT"), alert.freq_once_per_bar_close)
+    if aiWatchGo and not (longSig or shortSig)
+        alert(f_payload("WATCH"), alert.freq_once_per_bar_close)
+    if aiPOI and poiFirst and tDir == 0
+        alert(f_payload("POI"), alert.freq_once_per_bar_close)
