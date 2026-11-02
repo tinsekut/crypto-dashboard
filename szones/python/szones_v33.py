@@ -260,10 +260,10 @@ def run(code):
                 ex = min(tr['stop'], o[i]) if P['gapFill'] else tr['stop']; tr['how'] = 'BE' if tr['tp2'] else 'SL'
             else:
                 if not tr['tp1'] and h[i] >= tr['t1']:
-                    tr['tp1'] = True; tr['R'] += P['scale'] * (tr['t1'] - tr['e']) / tr['risk']
+                    tr['tp1'] = True; tr['i1'] = i; tr['R'] += P['scale'] * (tr['t1'] - tr['e']) / tr['risk']
                 hit2 = False
                 if not tr['tp2'] and h[i] >= tr['t2']:
-                    tr['tp2'] = True; hit2 = True; tr['stop'] = tr['e']
+                    tr['tp2'] = True; tr['i2'] = i; hit2 = True; tr['stop'] = tr['e']
                 if tr['tp2'] and not hit2 and c[i] < eF[i]:
                     ex = c[i]; tr['how'] = 'runner'
                 elif not longB:
@@ -273,7 +273,7 @@ def run(code):
             if ex is not None:
                 rem = 1 - P['scale'] if tr['tp1'] else 1.0
                 tr['R'] += rem * (ex - tr['e']) / tr['risk'] - COST * tr['e'] / tr['risk']
-                tr['xt'] = T[i]; tr['xp'] = ex
+                tr['xt'] = T[i]; tr['xp'] = ex; tr['ix'] = i
                 trades.append(tr); tr = None
         elif longSetup and (P['daily'] or not P['sess'] or (hm + P['tf'] <= 16 * 60 + 30 and not lastBar[i])):
             chase = (c[i] - zt) / a

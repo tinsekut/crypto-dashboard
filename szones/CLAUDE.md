@@ -32,9 +32,10 @@ A Pine Script v6 TradingView indicator: trend-pullback zones (4 ATR bands off a 
 | v3.3 | Execution guards: entry-relative tick-valid levels, chase guard 0.5 ATR, cost filter (net TP1 ≥ 0.25R), stats net of costs, long-only, session rules, "Bursa intraday (15m)" preset |
 | v3.3.1 | Fixed RE10140 "too many plots (65 > 64)": zone borders fixed colour; signal/POI/sweep markers are labels |
 | v3.3.2 | AI bridge: JSON webhook snapshots for a Claude relay. Not used since 2 Nov: Claude reviews from the Python port instead (section 6); keep the input off |
-| **v3.3.3 (current)** | Defaults only: daily swing, grade A only (long only, Bursa ticks, 0.25% cost, HTF W, TP1 1.0 / TP2 2.0, minimum grade A). Logic identical to v3.3.2. Use on a daily chart |
+| v3.3.3 | Defaults only: daily swing, grade A only (long only, Bursa ticks, 0.25% cost, HTF W, TP1 1.0 / TP2 2.0, minimum grade A). Logic identical to v3.3.2. Use on a daily chart |
+| **v3.3.4 (current)** | Dashboard: Compact (default) / Full layout; new Timing row — next signal check, entry at next open, typical TP1/TP2/exit date ranges (25th–75th percentile) from this chart's 5+ closed trades, else daily grade A backtest (TP1 2 bars [1–5] 47% reach, TP2 13 [6–20] 25%, exit 7 [3–23]). Weekends skipped, holidays not. Signal logic unchanged |
 
-Current script: `pine/SZones_v3_3_3.pine` (v3.3.2 kept for reference).
+Current script: `pine/SZones_v3_3_4.pine` (v3.3.2 and v3.3.3 kept for reference). Not compile-checked here (no Pine compiler in the container); tIn compiles on TradingView.
 
 ### Bursa intraday preset (what it forces)
 
@@ -235,7 +236,8 @@ The 15m routine (`szones_daily.py`) still works but is no longer scheduled.
 | Path | What |
 |---|---|
 | `SZONES_HANDOFF.md` | This file (save as `CLAUDE.md`) |
-| `pine/SZones_v3_3_3.pine` | Current indicator (full script; daily swing grade A defaults) |
+| `pine/SZones_v3_3_4.pine` | Current indicator (daily swing grade A defaults, Compact dashboard, Timing row) |
+| `pine/SZones_v3_3_3.pine` | Previous version (same defaults, old dashboard) |
 | `pine/SZones_v3_3_2.pine` | Previous version (same logic, old defaults) |
 | `python/szones_v33.py` | Python port of the v3.3 rules (backtests, scans) |
 | `python/szones_data.py` | Data fallback chain: Yahoo → EODHD → TradingView (+ `local` replay) |
