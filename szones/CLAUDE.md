@@ -216,7 +216,7 @@ The 15m routine (`szones_daily.py`) still works but is no longer scheduled.
 
 ## 7. Documents and links
 
-- User manual (Claude Docs): https://claude.ai/artifact/SmpGy7mJL8PmKh7GqivdyE (id d0b653aa-7795-4f40-a063-8b8afb279e65) — updated 2 Nov to **v3.3.2**, with the sections "Test results (2 Nov 2026)" (timeframes, daily grade filter, gold) and "Daily swing routine (grade A only)" (rules, evening report, Claude's review, TradingView settings to mirror it). Daily loss limit confirmed by tIn on 2 Nov: 2 consecutive losses or −3R, no weekly cap.
+- User manual (Claude Docs): https://claude.ai/artifact/SmpGy7mJL8PmKh7GqivdyE (id d0b653aa-7795-4f40-a063-8b8afb279e65) — updated 2 Nov to **v3.3.4** (dashboard layouts, "Timing row" subsection, Layout / Show timing estimates in the settings table, v3.3.3 defaults), with the sections "Test results (2 Nov 2026)" (timeframes, daily grade filter, gold) and "Daily swing routine (grade A only)" (rules, evening report, Claude's review, TradingView settings to mirror it). Daily loss limit confirmed by tIn on 2 Nov: 2 consecutive losses or −3R, no weekly cap.
 
 ---
 
