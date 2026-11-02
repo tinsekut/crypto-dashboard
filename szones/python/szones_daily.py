@@ -5,7 +5,7 @@ Usage:
   python3 szones_daily.py --date 2026-11-02            # during the session or pre-market
   python3 szones_daily.py --date 2026-11-02 --closed   # after 17:00: keep the 16:45 bar, flatten trades
 
-Steps: download Yahoo 15m (60d) + 1d (1y) data into <workdir>/data, run the v3.3 rules
+Steps: download 15m + 1d data into <workdir>/data (Yahoo, then EODHD, then TradingView; see szones_data.py), run the v3.3 rules
 (ticks, chase 0.5 ATR, net TP1 >= 0.25R, TP1 1.0 / TP2 2.0 ATR, long only, 0.25% cost),
 print the day's signals with R after costs, the rolling 60-session average, and the next watchlist.
 """
@@ -25,14 +25,26 @@ if a.closed: os.environ['SZ_CLOSED'] = '1'
 sh = json.load(open(a.shariah))
 codes = [c for c, i in sh.items() if i['status'] == 'Y' and c not in ('0138', '7033')]   # MYEG/DNEX: bad Yahoo data
 
+sys.path.insert(0, HERE)
+import szones_data as SD                          # Yahoo -> EODHD -> TradingView fallback chain
+src = {}
 def get(c):
-    for iv, rg in (('15m', '60d'), ('1d', '1y')):
-        subprocess.run(['curl', '-sS', '-m', '40', '-A', 'Mozilla/5.0',
-                        f'https://query1.finance.yahoo.com/v8/finance/chart/{c}.KL?interval={iv}&range={rg}',
-                        '-o', os.path.join(wd, 'data', f'{c}_{iv}.json')])
+    src[c] = SD.fetch(c, sh[c]['name'], os.path.join(wd, 'data'))
 with cf.ThreadPoolExecutor(8) as ex: list(ex.map(get, codes))
+json.dump(src, open(os.path.join(wd, 'sources.json'), 'w'), indent=1)
+from collections import Counter
+print('Data sources (15m):', dict(Counter(v['used'].get('15m', 'NONE') for v in src.values())),
+      '| (1d):', dict(Counter(v['used'].get('1d', 'NONE') for v in src.values())))
+missing = [sh[c]['name'] for c, v in src.items() if '15m' not in v['used']]
+if missing:
+    print('No 15m data for:', ', '.join(missing))
+    errs = next(iter(v['errors'] for c, v in src.items() if '15m' not in v['used']))
+    print('  e.g.', errs)
+if len(missing) > len(codes) // 2:
+    sys.exit(f'ABORT: no 15m data for {len(missing)} of {len(codes)} counters. No outputs written, so the '
+             'scorecard does not mistake this for a real session. Fix data access and rerun.')
 
-os.chdir(wd); sys.path.insert(0, HERE)
+os.chdir(wd)
 import szones_v33 as Z
 Z.P.update(ticks=True, chase=0.5, minNet=0.25, tp1=1.0, tp2=2.0)
 up = lambda x, t: math.ceil(round(x / t, 6)) * t
