@@ -1,6 +1,6 @@
 # SZones — project handoff for Claude Code
 
-**As of:** Mon 2 Nov 2026, ~11:00 MYT (originally written 07:36 MYT; updated through the day). Latest backtest data: Fri 30 Oct close.
+**As of:** Mon 2 Nov 2026, ~19:30 MYT (originally written 07:36 MYT; updated through the day; twice-daily routines and the SZones Brief dashboard added in the evening). Latest backtest data: Fri 30 Oct close.
 **Owner:** tIn (Malaysia, Asia/Kuala_Lumpur). Trades Bursa Malaysia (Shariah-compliant only, long only) and gold.
 **Use this file as `CLAUDE.md` in the project folder.** It is the single source of truth for the new session.
 
