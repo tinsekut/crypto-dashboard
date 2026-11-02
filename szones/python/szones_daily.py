@@ -69,3 +69,37 @@ for r in sorted([r for r in snap if r.get('p33') and r['adv'] >= a.min_adv and n
     print(f"{'OK  ' if ok else 'skip'} {r['ticker']:9} close {r['close']:.3f} dist {r['distZ1']:+.2f}ATR grade {g} [{r['plan']['why']}] "
           f"trig {p['trig']:.3f}..{p['maxE']:.3f} SL {p['sl']:.3f} TP1 {p['t1']:.3f} TP2 {p['t2']:.3f} net {p['net']:+.2f}R")
 json.dump(dict(today=[(n, {k: str(v) for k, v in t.items()}) for n, t in today], snap=snap), open('out.json', 'w'), default=str, indent=1)
+
+# ── Claude review inputs (replaces the TradingView webhook bridge) ──────────
+# snapshots.json: one WATCH snapshot per OK watchlist counter, same fields as the
+# v3.3.2 Pine payload. Claude reviews these after the close, before the next session.
+# trades.json: the day's trades, used to score those reviews the next evening.
+def _f(x, nd=6):
+    return None if x is None or (isinstance(x, float) and math.isnan(x)) else round(float(x), nd)
+
+def snapshot(r):
+    p, pl = r['p33'], r['plan']
+    zones = {f'z{k + 1}': [_f(zb), _f(zt)] for k, (zt, zb) in enumerate(r['zones'])}
+    by = {g: [n, _f(m, 3)] for g, (n, m) in r['byGrade'].items()}
+    poi = r['poi']
+    return dict(
+        v='3.3-py', event='WATCH', id=f"{r['ticker']}-{D}", ticker=r['ticker'], code=r['code'], tf='15',
+        time=r['last'], price=_f(r['close']), dir=1, grade=pl['expGrade'], reasons=pl['why'],
+        trend=dict(bias=r['zDir'], htf_bull=r['htf'] == 'bull', struct=r['sDir'], discount=r['disc'],
+                   squeeze=r['squeeze'], daily_up=r['dailyUp'], daily_dn=r['dailyDn']),
+        zones=dict(next=r['nextZ'], dist_z1_atr=_f(r['distZ1'], 3), **zones),
+        plan=dict(trigger=_f(p['trig']), max_entry=_f(p['maxE']), sl=_f(p['sl']), tp1=_f(p['t1']),
+                  tp2=_f(p['t2']), net_tp1_r=_f(p['net'], 3)),
+        smc=dict(maj=r['majDir'], msb=_f(r['msbLvl']), poi=[_f(poi['bot']), _f(poi['top'])] if poi else None,
+                 idm=_f(r['idm']), leg_ext=_f(r['legExt']), ext=_f(r['ext']), bsl=_f(r['bsl']), ssl=_f(r['ssl'])),
+        levels=dict(pdh=_f(r['pdh']), pdl=_f(r['pdl'])), atr=_f(r['atr15']), atr_pct=_f(r['atr15pct'], 3),
+        adv_rm=round(r['adv']), stats=dict(n=r['nTr'], avg_r=_f(r['avgR'], 3), **by),
+        cost_pct=0.25, long_only=True)
+
+wl = [r for r in snap if r.get('p33') and r['adv'] >= a.min_adv and not r['squeeze']
+      and r['p33']['net'] >= 0.25 and r['p33']['maxE'] >= r['p33']['trig'] - 1e-9 and r['plan']['expGrade'] in 'AB']
+json.dump([snapshot(r) for r in sorted(wl, key=lambda r: r['distZ1'])], open('snapshots.json', 'w'), indent=1)
+json.dump([dict(ticker=nm, time=f"{t['t']:%Y-%m-%d %H:%M}", grade='ABC'[t['grade']], entry=t['e'], sl=t['stop'],
+                tp1=t['t1'], tp2=t['t2'], tp1_hit=t['tp1'], exit=t.get('how'), r=round(t['R'], 4))
+           for nm, t in sorted(today, key=lambda x: x[1]['t'])], open('trades.json', 'w'), indent=1)
+print(f'\nWrote {len(wl)} snapshots to {os.path.abspath("snapshots.json")} for Claude review')

@@ -31,7 +31,7 @@ A Pine Script v6 TradingView indicator: trend-pullback zones (4 ATR bands off a 
 | v3.2 | Analyst view: MSB, POI with 50% line, IDM, price tags, scenario path, optional POI limit entries |
 | v3.3 | Execution guards: entry-relative tick-valid levels, chase guard 0.5 ATR, cost filter (net TP1 ≥ 0.25R), stats net of costs, long-only, session rules, "Bursa intraday (15m)" preset |
 | v3.3.1 | Fixed RE10140 "too many plots (65 > 64)": zone borders fixed colour; signal/POI/sweep markers are labels |
-| **v3.3.2 (current)** | AI bridge: JSON webhook snapshots (WATCH / SIGNAL / EXIT / POI) for a Claude relay |
+| **v3.3.2 (current)** | AI bridge: JSON webhook snapshots for a Claude relay. Not used since 2 Nov: Claude reviews from the Python port instead (section 6); keep the input off |
 
 Current script: `pine/SZones_v3_3_2.pine`.
 
@@ -125,27 +125,46 @@ Daily uptrend (above 20/50/200 EMA; +13.8% in 20 days; 52-week high 2.36). Resis
 
 ---
 
-## 6. AI bridge (built, not yet set up by tIn)
+## 6. Claude review (replaces the TradingView AI bridge, decided 2 Nov 2026)
 
-Pine cannot call Claude. Flow: SZones `alert()` JSON → TradingView webhook → Google Apps Script relay (`relay/SZones_AI_Relay.gs`) queues it → every-minute trigger asks Claude (Messages API, `claude-haiku-5-5` default, `anthropic-version: 2023-06-01`) → Telegram message → logged to a Sheet. `scorecard()` compares Claude TAKE vs all signals and Brier score vs base rate. Latency ~1–2 min after the 15m close.
+tIn decided: **no TradingView integration.** Claude does the AI review itself from the Python port's output. The webhook relay was removed. Leave the Pine "Send JSON snapshots" input **off**; the v3.3.2 script needs no other change.
 
-Setup checklist: `docs/SZones_AI_Setup_Checklist.xlsx`. Script properties: `ANTHROPIC_API_KEY` (not created yet), `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID`, `WEBHOOK_SECRET` (new; must equal the indicator's Shared secret), `MODEL` (optional). Requires a TradingView plan with webhooks + 2FA.
+**Evening routine (weekdays after 17:00 MYT, D = today):**
 
-**Secrets:** never write keys or tokens into files, code or chat. A usable Telegram bot token + chat ID exist in tIn's old Polymarket bot `.env` (shared in a March 2026 chat); recommend `/revoke` and a fresh token. That same `.env` exposed a Polymarket wallet private key — advise moving funds/rotating if still used.
+```bash
+cd python
+python3 szones_daily.py --date D --closed --workdir ../runs/run_D
+python3 szones_scorecard.py
+```
+
+1. `runs/run_D/trades.json` = the rules' trades today (scores yesterday's reviews). `runs/run_D/snapshots.json` = one WATCH snapshot per next-session watchlist counter (A/B, valid trigger, net TP1 ≥ 0.25R, ADV ≥ RM10m, no squeeze). Same fields as the Pine payload.
+2. Review every snapshot and write `reviews/D.json` **before** the next session opens: `[{ticker, call, p_tp1, next_move, horizon_bars, key_level, invalidation, reason}]`. Never edit a review after the next session starts.
+3. Post the usual post-close report (section 4) with a "Claude review" column on the next watchlist, then the scorecard.
+4. Commit `runs/run_D/{snapshots,trades}.json` and `reviews/D.json`, push to the working branch. Raw data (`runs/*/data/`, `out.json`) is git-ignored.
+
+**Review rules (keep identical across sessions, or the scorecard means nothing):**
+- Use only the numbers in the snapshot. No news, prices or fundamentals from outside it.
+- Long only. Entry only on a 15m candle CLOSE between plan.trigger and plan.max_entry; skip if net_tp1_r < 0.25; stops/targets come from the actual entry; flat by session end.
+- Base rate (60 sessions, 57 counters): about −0.2R per trade after costs, TP1 on roughly 45% of trades. Stay near it unless the snapshot gives concrete reasons (structure, discount/premium, FVG, barriers, squeeze, distance to liquidity, stats).
+- call: TAKE (would take the signal if it triggers), SKIP (would not), WAIT (not enough to judge). p_tp1 in 0–1. reason ≤ 160 characters, plain English.
+
+**Judging Claude:** `szones_scorecard.py` matches each review to that ticker's first trade in the next session that has a run. Claude helps only if TAKE beats all reviewed trades on average R over 50+ trades, and its Brier score on TP1 is below the base-rate Brier. Until then the rules decide; Claude's call is logged beside them.
+
+**Secrets:** never write keys or tokens into files, code or chat. tIn's old Polymarket bot `.env` (shared in a March 2026 chat) exposed a Telegram bot token and a Polymarket wallet private key — advise revoking the token and moving funds/rotating the key if still used.
 
 ---
 
 ## 7. Documents and links
 
-- User manual (Claude Docs): https://claude.ai/code/artifact/d0b653aa-7795-4f40-a063-8b8afb279e65 — covers up to **v3.3**. Needs a v3.3.1/v3.3.2 update: plot-limit fix (labels), AI bridge section, Friday's revised numbers. tIn left an open comment on the daily loss limit (2 losses or −3R) — unanswered.
+- User manual (Claude Docs): https://claude.ai/artifact/SmpGy7mJL8PmKh7GqivdyE (id d0b653aa-7795-4f40-a063-8b8afb279e65) — updated to **v3.3.2** on 2 Nov, including the Claude review section. Daily loss limit confirmed by tIn on 2 Nov: 2 consecutive losses or −3R, no weekly cap.
 
 ---
 
 ## 8. Open items / next steps
 
-1. Post-close evaluation today (`--closed` after 17:00), same report format; offer a weekday 17:15 scheduled task.
-2. Update the manual to v3.3.2.
-3. Help tIn set up the AI relay (Claude API key, Telegram, Apps Script deploy, TradingView alert); then run ≥50 signals before judging Claude via `scorecard()`.
+1. Weekday 17:15 MYT evening routine (section 6). Needs `query1.finance.yahoo.com` allowed in the cloud environment's network settings — blocked as of 2 Nov.
+2. Collect ≥50 scored trades before judging Claude's reviews.
+3. (done 2 Nov) Manual updated to v3.3.2.
 4. Test the same rules on **1H charts with overnight holds** (the grading was tested on 1H; 15m intraday is negative after costs).
 5. Refresh the Shariah list after 27 Nov 2026.
 6. Gold (XAUUSD) has never been tested with these rules — validate before trusting grades there.
@@ -158,8 +177,8 @@ Setup checklist: `docs/SZones_AI_Setup_Checklist.xlsx`. Script properties: `ANTH
 |---|---|
 | `SZONES_HANDOFF.md` | This file (save as `CLAUDE.md`) |
 | `pine/SZones_v3_3_2.pine` | Current indicator (full script) |
-| `relay/SZones_AI_Relay.gs` | Google Apps Script relay (webhook → Claude → Telegram → Sheet) |
 | `python/szones_v33.py` | Python port of the v3.3 rules (backtests, scans) |
-| `python/szones_daily.py` | Daily fetch + evaluate + watchlist |
+| `python/szones_daily.py` | Daily fetch + evaluate + watchlist; writes `snapshots.json` and `trades.json` |
+| `python/szones_scorecard.py` | Scores Claude's reviews against the next session's trades |
+| `runs/run_D/`, `reviews/D.json` | Daily outputs and Claude's calls (section 6) |
 | `data/shariah_sc_list_2026-05-29.json` | Shariah status per counter (SC list effective 29 May 2026) |
-| `docs/SZones_AI_Setup_Checklist.xlsx` | Setup checklist for the AI bridge |
