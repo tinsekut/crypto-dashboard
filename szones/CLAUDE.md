@@ -1,6 +1,6 @@
 # SZones — project handoff for Claude Code
 
-**As of:** Mon 2 Nov 2026, 07:36 MYT (pre-market). Latest data: Fri 30 Oct close.
+**As of:** Mon 2 Nov 2026, ~11:00 MYT (originally written 07:36 MYT; updated through the day). Latest backtest data: Fri 30 Oct close.
 **Owner:** tIn (Malaysia, Asia/Kuala_Lumpur). Trades Bursa Malaysia (Shariah-compliant only, long only) and gold.
 **Use this file as `CLAUDE.md` in the project folder.** It is the single source of truth for the new session.
 
@@ -148,7 +148,7 @@ python3 szones_daily.py --date 2026-11-02 --closed   # after 17:00 MYT (keeps th
 - **Data (since 2 Nov: fallback chain in `python/szones_data.py`):** each counter's 15m and 1d bars come from the first source that returns enough clean bars, converted to the Yahoo chart-JSON shape so `szones_v33.py` is unchanged. Order via env `SZ_SOURCES` (default `yahoo,eodhd,tradingview`); `local` replays files already in the run folder. The source per counter is written to `runs/run_D/sources.json` — name it in the report. If more than half the universe has no 15m data the run aborts and writes no outputs (so the scorecard never scores an empty day).
   1. **Yahoo** (free): `query1`/`query2.finance.yahoo.com/v8/finance/chart/{code}.KL`, 15m 60d + 1d 1y, ~15 min delayed.
   2. **EODHD** (official, paid ~US$20/month EOD+intraday): `eodhd.com/api/intraday/{code}.KLSE?interval=5m` resampled to 15m, `api/eod` for daily. Needs env `EODHD_API_KEY` (set as an environment secret, never in files or chat). Non-US intraday is 5m/1h from Oct 2020. Live KLSE coverage untested.
-  3. **TradingView** (free, unofficial `tvDatafeed`, `MYX:<name>`, 15m up to 5000 bars ≈ 190 sessions): vendored and reviewed in `python/vendor/tvDatafeed` (see its VENDORED.md; one header patch). Needs `pip install -r requirements.txt` (websocket-client, from PyPI). Never install it from GitHub in scheduled runs. May break or be rate-limited; untested on live MYX data (blocked at the proxy on 2 Nov).
+  3. **TradingView** (free, unofficial `tvDatafeed`, `MYX:<name>`, 15m up to 5000 bars ≈ 190 sessions): vendored and reviewed in `python/vendor/tvDatafeed` (see its VENDORED.md; one header patch). Needs `pip install -r requirements.txt` (websocket-client, from PyPI). Never install it from GitHub in scheduled runs. May break or be rate-limited. Verified on live MYX data 2 Nov (all 57 counters at 5m/15m/30m/60m/daily; some connections drop and succeed on retry).
   Researched and rejected (2 Nov): Twelve Data (Bursa only on Pro tier+, its own docs say XKLS may need a licence); Google Finance in Sheets (no confirmed Bursa support, history not readable by API).
   Network allowlist: `query1.finance.yahoo.com`, `query2.finance.yahoo.com`, `eodhd.com`, `data.tradingview.com` — **allowed by tIn on 2 Nov; all three sources reachable.**
   Verified 2 Nov: replay of Fri 30 Oct on live Yahoo data reproduced the recorded day exactly (6 signals, −0.84R, A/B +0.11R). TradingView returned 5,000 15m bars for DIALOG (back to 17 Dec 2025) and matched Yahoo closes on 1,411 of 1,414 shared bars — usable for longer backtests (open item 4).
@@ -160,7 +160,7 @@ python3 szones_daily.py --date 2026-11-02 --closed   # after 17:00 MYT (keeps th
 
 ---
 
-## 5. Today (Mon 2 Nov) — pre-market plan
+## 5. Mon 2 Nov — 15m pre-market plan (historical; superseded the same day by the daily swing routine, section 6)
 
 Market: KLCI 1,615.60 (+4.04 w/w); analysts expect 1,600–1,630, mild upside bias. Events: Malaysia manufacturing PMI today; **BNM rate decision Wed 5 Nov**. Last week energy and plantation led, financials fell.
 
@@ -216,6 +216,8 @@ The 15m routine (`szones_daily.py`) still works but is no longer scheduled.
 
 ## 7. Documents and links
 
+- Code and run history: GitHub `tinsekut/crypto-dashboard`, branch `claude/szones-handoff`, folder `szones/` (includes the vendored TradingView library).
+- Google Drive copy of the latest files: folder "SZones latest — v3.3.4 (2 Nov 2026)" (the original morning bundle stays in "SZones handoff (2 Nov 2026)"; its relay script is obsolete).
 - User manual (Claude Docs): https://claude.ai/artifact/SmpGy7mJL8PmKh7GqivdyE (id d0b653aa-7795-4f40-a063-8b8afb279e65) — updated 2 Nov to **v3.3.4** (dashboard layouts, "Timing row" subsection, Layout / Show timing estimates in the settings table, v3.3.3 defaults), with the sections "Test results (2 Nov 2026)" (timeframes, daily grade filter, gold) and "Daily swing routine (grade A only)" (rules, evening report, Claude's review, TradingView settings to mirror it). Daily loss limit confirmed by tIn on 2 Nov: 2 consecutive losses or −3R, no weekly cap.
 
 ---
@@ -224,7 +226,7 @@ The 15m routine (`szones_daily.py`) still works but is no longer scheduled.
 
 1. Weekday 17:15 MYT evening routine — daily swing paper record (section 6). Data access working since 2 Nov (section 4). For EODHD, tIn adds `EODHD_API_KEY` as an environment secret.
 2. Collect ≥50 scored trades before judging Claude's reviews.
-3. (done 2 Nov) Manual updated to v3.3.2.
+3. (done 2 Nov) Manual updated to v3.3.4.
 4. (done 2 Nov) 1H with overnight holds: least bad (−0.11R net, +0.03R gross) but still negative. Daily swing tested 2 Nov: break-even (+0.003R, t = 0.10), no edge (section 3).
 5. Refresh the Shariah list after 27 Nov 2026.
 6. (done 2 Nov) Gold tested: no significant edge at any timeframe; 4H/daily positive but far behind holding gold (section 3).
