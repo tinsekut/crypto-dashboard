@@ -7,12 +7,21 @@ SL 1.8 ATR, runner after TP2, entry at the NEXT day's open after a signal close,
 0.25% round-trip cost, long only. Backtest all grades: +0.003R per trade, 43% win, TP1 55%, median hold
 13 days; grade A only: -0.024R (t -0.30), 38% win, TP1 47%, 212 trades in 10.8 years.
 
-Usage (after 17:00 MYT):
+Usage (after 17:00 MYT, evening):
   python3 szones_swing.py --date 2026-11-02 --workdir ../runs/swing_2026-11-02
+Usage (before 09:00 MYT, pre-open check on the final data of the last session):
+  python3 szones_swing.py --date 2026-11-03 --premarket --workdir ../runs/premarket_2026-11-03
 
 Writes to the workdir: snapshots.json (SIGNAL = buy at next open, WATCH = could signal at the next
 close), trades.json (closed trades, entry in the last 400 days), positions.json (open positions),
-sources.json. Aborts without outputs if more than half the universe has no data.
+sources.json, summary.json (headline numbers for the brief). Aborts without outputs if more than half the
+universe has no data.
+
+--premarket: --date is the day of the coming open. The session analysed is the latest daily bar in the data
+(the last close). Nothing trades overnight on a daily chart, so this re-checks the evening plan on final
+data: it lists the orders for today's open and what changed against runs/swing_<session>/snapshots.json.
+Writes snapshots.json, positions.json, summary.json, sources.json (no trades.json, so the scorecard is
+unaffected).
 """
 import argparse, json, math, os, sys, datetime as dt, concurrent.futures as cf
 from collections import Counter
@@ -26,6 +35,7 @@ ap.add_argument('--shariah', default=os.path.join(HERE, '..', 'data', 'shariah_s
 ap.add_argument('--min-adv', type=float, default=10e6, help='min 20-day avg turnover (RM)')
 ap.add_argument('--min-grade', default='A', choices=['A', 'B', 'C'],
                 help='lowest grade traded (tIn chose A only on 2 Nov 2026; backtest A only: -0.024R, t -0.30)')
+ap.add_argument('--premarket', action='store_true', help='pre-open check before the next open (see above)')
 a = ap.parse_args()
 D = dt.date.fromisoformat(a.date)
 wd = os.path.abspath(a.workdir or os.path.join(os.getcwd(), f'swing_{a.date}'))
@@ -60,7 +70,7 @@ def _f(x, nd=6):
     return None if x is None or (isinstance(x, float) and math.isnan(x)) else round(float(x), nd)
 
 
-closed, opened, signals, watch, positions, stale = [], [], [], [], [], []
+closed, opened, signals, watch, positions, lasts = [], [], [], [], [], {}
 for c in codes:
     if c in missing:
         continue
@@ -69,8 +79,7 @@ for c in codes:
     except Exception as e:
         print('skip', sh[c]['name'], e); continue
     nm = sh[c]['name']; r['ticker'] = nm
-    if r['last'][:10] != str(D):
-        stale.append(f"{nm} (last bar {r['last'][:10]})")
+    lasts[nm] = r['last'][:10]
     for t in Z.run.trades:
         if (D - t['t'].date()).days <= 400:
             closed.append(dict(ticker=nm, time=f"{t['t']:%Y-%m-%d}", exit_time=f"{t['xt']:%Y-%m-%d}", grade=G[t['grade']],
@@ -113,10 +122,20 @@ for c in codes:
                                         sl=_f(sl), tp1=_f(t1), net_tp1_r=_f(net, 3))))
 
 closed.sort(key=lambda t: t['time'])
-print(f'\n=== {D}: daily swing (paper), grades traded: {"ABC"[:"ABC".index(a.min_grade) + 1]} ===')
+OPEN_DAY = D                             # the session whose open the plan is for
+if a.premarket:
+    D = dt.date.fromisoformat(max(lasts.values(), key=lambda d: (list(lasts.values()).count(d), d)))
+    if D >= OPEN_DAY:
+        sys.exit(f'ABORT: latest bar {D} is not before {OPEN_DAY}; run --premarket before the open.')
+    for s in signals + watch:
+        s['id'] = f"{s['ticker']}-{D}"
+stale = [f'{nm} (last bar {d})' for nm, d in lasts.items() if d != str(D)]
+edition = 'Pre-open' if a.premarket else 'Evening'
+print(f'\n=== {edition} {"check for the open of " + str(OPEN_DAY) + ", on the close of " if a.premarket else ""}'
+      f'{D}: daily swing (paper), grades traded: {"ABC"[:"ABC".index(a.min_grade) + 1]} ===')
 if stale:
     print(f'WARNING: {len(stale)} counters have no bar for {D}: {", ".join(stale[:8])}')
-print(f'\nSignals at today\'s close -> buy at the next open ({len(signals)}):')
+print(f'\nSignals at the close of {D} -> buy at the open of {OPEN_DAY if a.premarket else "the next session"} ({len(signals)}):')
 for s in sorted(signals, key=lambda s: s['grade']):
     q = s['plan']
     print(f"  {s['ticker']:9} grade {s['grade']} zone {s['zone']} close {s['price']}  ~SL {q['sl']}  ~TP1 {q['tp1']}  ~TP2 {q['tp2']}  net TP1 {q['net_tp1_r']:+.2f}R")
@@ -142,7 +161,29 @@ for w in sorted(watch, key=lambda w: w['zones']['dist_z1_atr']):
     q = w['plan']
     print(f"  {w['ticker']:9} grade {w['grade']} [{w['reasons']}] close {w['price']} dist {w['zones']['dist_z1_atr']:+.2f}ATR  "
           f"green close {q['trigger_close']}..{q['max_close']}  SL {q['sl']}  TP1 {q['tp1']}  net {q['net_tp1_r']:+.2f}R")
+changes = None
+if a.premarket:                          # compare with the evening plan for the same close
+    ev = os.path.join(wd, '..', f'swing_{D}', 'snapshots.json')
+    if os.path.exists(ev):
+        old = {(s['ticker'], s['event']) for s in json.load(open(ev))}
+        new = {(s['ticker'], s['event']) for s in signals + watch}
+        changes = dict(added=sorted(f'{t} {e}' for t, e in new - old), dropped=sorted(f'{t} {e}' for t, e in old - new))
+        print(f'\nAgainst the evening plan of {D}: added {changes["added"] or "none"}, dropped {changes["dropped"] or "none"}')
+    else:
+        print(f'\nNo evening run for {D} found ({ev}); treat this as the plan for {OPEN_DAY}.')
+src_used = Counter(v['used'].get('1d', 'NONE') for v in src.values())
+mt = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+json.dump(dict(edition=edition, session=str(D), for_open=str(OPEN_DAY) if a.premarket else None,
+               run_time=f'{mt:%Y-%m-%d %H:%M} MYT', min_grade=a.min_grade,
+               signals_next_open=len(signals), watch=len(watch), open_positions=len(positions), position_cap=3,
+               closed_on_session=len(today_x), closed_on_session_r=round(sum(t['r'] for t in today_x), 3),
+               forward_closed=len(fwd), forward_total_r=round(sum(fwd), 3), go_live=str(GO_LIVE),
+               replay_12m_trades=len(yr), replay_12m_avg_r=round(sum(yr) / max(1, len(yr)), 3),
+               data_source=src_used.most_common(1)[0][0], counters_with_data=len(codes) - len(missing),
+               counters_total=len(codes), stale=stale, changes=changes),
+          open('summary.json', 'w'), indent=1)
 json.dump(signals + watch, open('snapshots.json', 'w'), indent=1)
-json.dump(closed, open('trades.json', 'w'), indent=1)
+if not a.premarket:
+    json.dump(closed, open('trades.json', 'w'), indent=1)
 json.dump(positions, open('positions.json', 'w'), indent=1)
 print(f'\nWrote {len(signals)} SIGNAL + {len(watch)} WATCH snapshots for Claude review -> {os.path.join(wd, "snapshots.json")}')

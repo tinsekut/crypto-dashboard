@@ -198,7 +198,27 @@ python3 szones_scorecard.py
 1. Outputs in `runs/swing_D/`: `snapshots.json` (SIGNAL = fired at today's close, buy at the next open; WATCH = within 1 ATR of the next zone, A/B, valid trigger, net TP1 ≥ 0.25R, ADV ≥ RM10m, no squeeze — could signal at the next close), `trades.json` (closed trades, entries in the last 400 days), `positions.json` (open), `sources.json`.
 2. Review every snapshot and write `reviews/D.json` **before** the next open: `[{ticker, event, call, p_tp1, next_move, horizon_bars, key_level, invalidation, reason}]`. Never edit a review after the next session opens.
 3. Report: data source + stale counters; signals for the next open (with Claude's call); open positions with stop/targets and open R; trades closed today with R; forward record since 3 Nov and last-12-month replay; watch list (with Claude's call); scorecard. Indicator readouts, not advice.
-4. Commit `runs/swing_D/{snapshots,trades,positions,sources}.json` and `reviews/D.json`, push to the working branch. Raw data (`runs/*/data/`, `out.json`) is git-ignored.
+4. Refresh the dashboard (see "Brief refresh" below) with `--run ../runs/swing_D`, edition Evening.
+5. Commit `runs/swing_D/{snapshots,trades,positions,sources,summary}.json`, `runs/swing_D/brief/*.json` and `reviews/D.json`, push to the working branch. Raw data (`runs/*/data/`, `out.json`) is git-ignored.
+
+**Pre-open routine (since 3 Nov 2026, tIn asked for two runs a day; weekdays 08:12 MYT, before Bursa's 08:30 pre-open; T = today):**
+
+```bash
+cd python
+python3 szones_swing.py --date T --premarket --workdir ../runs/premarket_T
+```
+
+A daily chart cannot produce new signals overnight, so this run re-checks last evening's plan on the final data of the last close (session S = the latest daily bar) and lists the orders for today's open. It writes `snapshots.json`, `positions.json`, `summary.json`, `sources.json` (no `trades.json`, so the scorecard is untouched) and prints what changed against `runs/swing_S/snapshots.json`.
+1. If `reviews/S.json` is missing (the evening run failed), review every snapshot now under the rules below and write it. If it exists and `summary.json` lists `changes.added`, append reviews for the added setups only. Never edit an existing review, and write nothing after 09:00.
+2. Refresh the dashboard with `--run ../runs/premarket_T`, edition Pre-open.
+3. Report briefly: orders for today's open (SIGNALs; real stop/targets are re-based on the actual open), changes against the evening plan, open positions with their stops, data source and stale counters. Indicator readouts, not advice. If T is a Bursa holiday the plan simply carries to the next session; say so if you know it.
+4. Commit `runs/premarket_T/{snapshots,positions,summary,sources}.json`, `runs/premarket_T/brief/*.json` and any review file changed, push.
+
+**Brief refresh (both routines).** Dashboard "SZones Brief": https://claude.ai/artifact/Kt4NUYMt5fGiE2U3j1v1cj (Dashboard artifact type; the page reads three data files from its asset store).
+1. `python3 szones_brief.py --run <run folder>` writes `<run>/brief/{run_summary,positions,watchlist}.json` (Claude's calls merged from `reviews/S.json`).
+2. Upload each of the three files as an asset to the dashboard, one call per file (Artifact publish with `url` = the dashboard, `asset: true`, `file_path`). Note each new `/_blob/<id>` url.
+3. ArtifactData `get` `datasets/run_summary`, `datasets/positions`, `datasets/watchlist` (versions and old source urls), then one `batch` of `update`s pinned with `if_version`: `source` = `{kind: "file", url: <new blob url>, name: "<file>.json"}`, `updated` = `{at: <now, UTC ISO>, by: "Claude, SZones <edition> routine"}`.
+4. Delete the three replaced assets (Artifact `delete`, `url` = the dashboard, `path` = the old blob id). Never touch `datasets/timeframe_test`, `datasets/grade_test` (fixed backtests) or `files/index.html` (the page) in a routine.
 
 The 15m routine (`szones_daily.py`) still works but is no longer scheduled.
 
@@ -218,13 +238,14 @@ The 15m routine (`szones_daily.py`) still works but is no longer scheduled.
 
 - Code and run history: GitHub `tinsekut/crypto-dashboard`, branch `claude/szones-handoff`, folder `szones/` (includes the vendored TradingView library).
 - Google Drive copy of the latest files: folder "SZones latest — v3.3.4 (2 Nov 2026)" (the original morning bundle stays in "SZones handoff (2 Nov 2026)"; its relay script is obsolete).
+- Dashboard "SZones Brief" (pre-open and evening editions, refreshed by both routines): https://claude.ai/artifact/Kt4NUYMt5fGiE2U3j1v1cj
 - User manual (Claude Docs): https://claude.ai/artifact/SmpGy7mJL8PmKh7GqivdyE (id d0b653aa-7795-4f40-a063-8b8afb279e65) — updated 2 Nov to **v3.3.4** (dashboard layouts, "Timing row" subsection, Layout / Show timing estimates in the settings table, v3.3.3 defaults), with the sections "Test results (2 Nov 2026)" (timeframes, daily grade filter, gold) and "Daily swing routine (grade A only)" (rules, evening report, Claude's review, TradingView settings to mirror it). Daily loss limit confirmed by tIn on 2 Nov: 2 consecutive losses or −3R, no weekly cap.
 
 ---
 
 ## 8. Open items / next steps
 
-1. Weekday 17:15 MYT evening routine — daily swing paper record (section 6). Data access working since 2 Nov (section 4). For EODHD, tIn adds `EODHD_API_KEY` as an environment secret.
+1. Weekday routines (section 6): 08:12 MYT pre-open check and 17:15 MYT evening run — daily swing paper record, each refreshing the SZones Brief dashboard. Data access working since 2 Nov (section 4). For EODHD, tIn adds `EODHD_API_KEY` as an environment secret.
 2. Collect ≥50 scored trades before judging Claude's reviews.
 3. (done 2 Nov) Manual updated to v3.3.4.
 4. (done 2 Nov) 1H with overnight holds: least bad (−0.11R net, +0.03R gross) but still negative. Daily swing tested 2 Nov: break-even (+0.003R, t = 0.10), no edge (section 3).
@@ -247,6 +268,7 @@ The 15m routine (`szones_daily.py`) still works but is no longer scheduled.
 | `requirements.txt` | PyPI dependencies: numpy, websocket-client |
 | `python/szones_daily.py` | Daily fetch + evaluate + watchlist; writes `snapshots.json` and `trades.json` |
 | `python/szones_swing.py` | Daily swing routine (scheduled): signals for the next open, positions, closed trades, watch list |
+| `python/szones_brief.py` | Builds the SZones Brief dashboard's data files from a run (section 6, Brief refresh) |
 | `python/szones_scorecard.py` | Scores Claude's reviews against the trades that follow (multi-day aware) |
-| `runs/swing_D/`, `reviews/D.json` | Daily swing outputs and Claude's calls (section 6); `runs/run_D/` = old 15m runs |
+| `runs/swing_D/`, `runs/premarket_T/`, `reviews/D.json` | Evening and pre-open daily swing outputs (with `brief/` files) and Claude's calls (section 6); `runs/run_D/` = old 15m runs |
 | `data/shariah_sc_list_2026-05-29.json` | Shariah status per counter (SC list effective 29 May 2026) |
