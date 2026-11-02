@@ -171,26 +171,31 @@ Daily uptrend (above 20/50/200 EMA; +13.8% in 20 days; 52-week high 2.36). Resis
 
 tIn decided: **no TradingView integration.** Claude does the AI review itself from the Python port's output. The webhook relay was removed. Leave the Pine "Send JSON snapshots" input **off**; the v3.3.2 script needs no other change.
 
-**Evening routine (weekdays after 17:00 MYT, D = today):**
+**Evening routine — DAILY SWING since 2 Nov 2026 (tIn switched from 15m; weekdays after 17:00 MYT, D = today):**
 
 ```bash
+pip install -r requirements.txt                 # PyPI only
 cd python
-python3 szones_daily.py --date D --closed --workdir ../runs/run_D
+python3 szones_swing.py --date D --workdir ../runs/swing_D
 python3 szones_scorecard.py
 ```
 
-1. `runs/run_D/trades.json` = the rules' trades today (scores yesterday's reviews). `runs/run_D/snapshots.json` = one WATCH snapshot per next-session watchlist counter (A/B, valid trigger, net TP1 ≥ 0.25R, ADV ≥ RM10m, no squeeze). Same fields as the Pine payload.
-2. Review every snapshot and write `reviews/D.json` **before** the next session opens: `[{ticker, call, p_tp1, next_move, horizon_bars, key_level, invalidation, reason}]`. Never edit a review after the next session starts.
-3. Post the usual post-close report (section 4) with a "Claude review" column on the next watchlist, then the scorecard.
-4. Commit `runs/run_D/{snapshots,trades}.json` and `reviews/D.json`, push to the working branch. Raw data (`runs/*/data/`, `out.json`) is git-ignored.
+`szones_swing.py` uses exactly the daily backtest settings (section 3): daily chart, weekly bias, chase 0.5 ATR, net TP1 ≥ 0.25R, TP1 1.0 / TP2 2.0 ATR, SL 1.8 ATR, runner, **entry at the next day's open** after a green signal close, gap-aware stops, 0.25% cost, long only, ~5 years of daily bars via the fallback chain (`mode='daily'`). No position cap in the record (backtest primary); note when more than 3 are open. Forward paper record counts only trades entered from **Tue 3 Nov 2026**; positions open on 2 Nov came from replaying the rules and are labelled "inherited".
+
+1. Outputs in `runs/swing_D/`: `snapshots.json` (SIGNAL = fired at today's close, buy at the next open; WATCH = within 1 ATR of the next zone, A/B, valid trigger, net TP1 ≥ 0.25R, ADV ≥ RM10m, no squeeze — could signal at the next close), `trades.json` (closed trades, entries in the last 400 days), `positions.json` (open), `sources.json`.
+2. Review every snapshot and write `reviews/D.json` **before** the next open: `[{ticker, event, call, p_tp1, next_move, horizon_bars, key_level, invalidation, reason}]`. Never edit a review after the next session opens.
+3. Report: data source + stale counters; signals for the next open (with Claude's call); open positions with stop/targets and open R; trades closed today with R; forward record since 3 Nov and last-12-month replay; watch list (with Claude's call); scorecard. Indicator readouts, not advice.
+4. Commit `runs/swing_D/{snapshots,trades,positions,sources}.json` and `reviews/D.json`, push to the working branch. Raw data (`runs/*/data/`, `out.json`) is git-ignored.
+
+The 15m routine (`szones_daily.py`) still works but is no longer scheduled.
 
 **Review rules (keep identical across sessions, or the scorecard means nothing):**
 - Use only the numbers in the snapshot. No news, prices or fundamentals from outside it.
-- Long only. Entry only on a 15m candle CLOSE between plan.trigger and plan.max_entry; skip if net_tp1_r < 0.25; stops/targets come from the actual entry; flat by session end.
-- Base rate (60 sessions, 57 counters): about −0.2R per trade after costs, TP1 on roughly 45% of trades. Stay near it unless the snapshot gives concrete reasons (structure, discount/premium, FVG, barriers, squeeze, distance to liquidity, stats).
-- call: TAKE (would take the signal if it triggers), SKIP (would not), WAIT (not enough to judge). p_tp1 in 0–1. reason ≤ 160 characters, plain English.
+- Long only. SIGNAL: entry at the next open, stop/targets re-based on that open. WATCH: only if the next daily candle closes green between plan.trigger_close and plan.max_close; skip if net_tp1_r < 0.25.
+- Base rate (daily backtest 2016–2026, 938 trades): about 0R per trade after costs (+0.003R), win 43%, TP1 reached on 55%, median hold 13 days; last 12 months weaker (about −0.15R). Stay near it unless the snapshot gives concrete reasons (structure, discount/premium, FVG, barriers, squeeze, distance to liquidity, weekly bias).
+- call: TAKE (would take it), SKIP (would not), WAIT (not enough to judge). p_tp1 in 0–1. reason ≤ 160 characters, plain English.
 
-**Judging Claude:** `szones_scorecard.py` matches each review to that ticker's first trade in the next session that has a run. Claude helps only if TAKE beats all reviewed trades on average R over 50+ trades, and its Brier score on TP1 is below the base-rate Brier. Until then the rules decide; Claude's call is logged beside them.
+**Judging Claude:** `szones_scorecard.py` merges closed trades from every run, matches each review to that ticker's first trade entered within 5 calendar days after the review, and keeps it pending while the trade is open. Claude helps only if TAKE beats all reviewed trades on average R over 50+ trades, and its Brier score on TP1 is below the base-rate Brier. Until then the rules decide; Claude's call is logged beside them.
 
 **Secrets:** never write keys or tokens into files, code or chat. tIn's old Polymarket bot `.env` (shared in a March 2026 chat) exposed a Telegram bot token and a Polymarket wallet private key — advise revoking the token and moving funds/rotating the key if still used.
 
@@ -204,7 +209,7 @@ python3 szones_scorecard.py
 
 ## 8. Open items / next steps
 
-1. Weekday 17:15 MYT evening routine (section 6). Data access working since 2 Nov (section 4). For EODHD, tIn adds `EODHD_API_KEY` as an environment secret.
+1. Weekday 17:15 MYT evening routine — daily swing paper record (section 6). Data access working since 2 Nov (section 4). For EODHD, tIn adds `EODHD_API_KEY` as an environment secret.
 2. Collect ≥50 scored trades before judging Claude's reviews.
 3. (done 2 Nov) Manual updated to v3.3.2.
 4. (done 2 Nov) 1H with overnight holds: least bad (−0.11R net, +0.03R gross) but still negative. Daily swing tested 2 Nov: break-even (+0.003R, t = 0.10), no edge (section 3).
@@ -224,6 +229,7 @@ python3 szones_scorecard.py
 | `python/vendor/tvDatafeed/` | Vendored, reviewed tvDatafeed 2.1.0 (MIT) for the TradingView source |
 | `requirements.txt` | PyPI dependencies: numpy, websocket-client |
 | `python/szones_daily.py` | Daily fetch + evaluate + watchlist; writes `snapshots.json` and `trades.json` |
-| `python/szones_scorecard.py` | Scores Claude's reviews against the next session's trades |
-| `runs/run_D/`, `reviews/D.json` | Daily outputs and Claude's calls (section 6) |
+| `python/szones_swing.py` | Daily swing routine (scheduled): signals for the next open, positions, closed trades, watch list |
+| `python/szones_scorecard.py` | Scores Claude's reviews against the trades that follow (multi-day aware) |
+| `runs/swing_D/`, `reviews/D.json` | Daily swing outputs and Claude's calls (section 6); `runs/run_D/` = old 15m runs |
 | `data/shariah_sc_list_2026-05-29.json` | Shariah status per counter (SC list effective 29 May 2026) |

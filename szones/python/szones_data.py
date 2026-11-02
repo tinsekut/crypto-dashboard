@@ -54,8 +54,8 @@ def _count(doc):
 
 
 # ── Yahoo ────────────────────────────────────────────────────────────────────
-def yahoo(code, name, interval):
-    rng = '60d' if interval == '15m' else '1y'
+def yahoo(code, name, interval, long=False):
+    rng = '60d' if interval == '15m' else ('5y' if long else '1y')
     last = None
     for host in ('query1', 'query2'):
         try:
@@ -87,7 +87,7 @@ def resample_15m(bars5):
     return [tuple(b) for b in sorted(out.values())]
 
 
-def eodhd(code, name, interval):
+def eodhd(code, name, interval, long=False):
     key = os.environ.get('EODHD_API_KEY')
     if not key:
         raise RuntimeError('EODHD_API_KEY not set')
@@ -102,7 +102,7 @@ def eodhd(code, name, interval):
         last5 = max(d['timestamp'] for d in data) if data else 0
         meta = {'shortName': name, 'source': 'eodhd', 'regularMarketTime': last5 + 300}
     else:
-        frm = (now - dt.timedelta(days=370)).date().isoformat()
+        frm = (now - dt.timedelta(days=1900 if long else 370)).date().isoformat()
         data = json.loads(_curl(f'https://eodhd.com/api/eod/{sym}?from={frm}&api_token={key}&fmt=json'))
         rows = [(int(dt.datetime.fromisoformat(d['date']).replace(hour=9, tzinfo=MYT).timestamp()),
                  d['open'], d['high'], d['low'], d['close'], d.get('volume')) for d in data]
@@ -113,7 +113,7 @@ def eodhd(code, name, interval):
 
 
 # ── TradingView (unofficial) ─────────────────────────────────────────────────
-def tradingview(code, name, interval):
+def tradingview(code, name, interval, long=False):
     vendor = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vendor')
     if vendor not in sys.path:
         sys.path.insert(0, vendor)      # reviewed copy, see vendor/tvDatafeed/VENDORED.md
@@ -124,7 +124,7 @@ def tradingview(code, name, interval):
     tv = TvDatafeed()
     iv = {'5m': Interval.in_5_minute, '15m': Interval.in_15_minute, '30m': Interval.in_30_minute,
           '60m': Interval.in_1_hour, '1d': Interval.in_daily}[interval]
-    df = tv.get_hist(symbol=name, exchange='MYX', interval=iv, n_bars=300 if interval == '1d' else 5000)
+    df = tv.get_hist(symbol=name, exchange='MYX', interval=iv, n_bars=(1300 if long else 300) if interval == '1d' else 5000)
     if df is None or df.empty:
         raise RuntimeError(f'no bars for MYX:{name}')
     rows = []
@@ -143,21 +143,27 @@ def tradingview(code, name, interval):
 SOURCES = {'yahoo': yahoo, 'eodhd': eodhd, 'tradingview': tradingview}
 
 
-def fetch(code, name, outdir):
+def fetch(code, name, outdir, mode='15m'):
     """Write <outdir>/<code>_15m.json and _1d.json from the first source that works.
-    Returns {'15m': source, '1d': source} plus any errors seen."""
+    mode='daily': only ~5 years of daily bars (the weekly bias needs >55 weeks), written as
+    _1d.json and _1440m.json (the engine's daily chart file).
+    Returns {'used': {interval: source}, 'errors': {...}}."""
     used, errors = {}, {}
-    for iv, need in (('15m', MIN_15M_BARS), ('1d', MIN_1D_BARS)):
+    long = mode == 'daily'
+    plan = (('1d', 300),) if long else (('15m', MIN_15M_BARS), ('1d', MIN_1D_BARS))
+    for iv, need in plan:
         for src in ORDER:
             try:
                 if src == 'local':      # replay files already in outdir (offline tests, re-runs)
                     doc = json.load(open(os.path.join(outdir, f'{code}_{iv}.json')))
                 else:
-                    doc = SOURCES[src](code, name, iv)
+                    doc = SOURCES[src](code, name, iv, long=long)
                 n = _count(doc)
                 if n < need:
                     raise RuntimeError(f'only {n} bars')
                 json.dump(doc, open(os.path.join(outdir, f'{code}_{iv}.json'), 'w'))
+                if long:
+                    json.dump(doc, open(os.path.join(outdir, f'{code}_1440m.json'), 'w'))
                 used[iv] = src
                 break
             except Exception as e:      # noqa: BLE001 - fall through to the next source

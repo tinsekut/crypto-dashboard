@@ -1,38 +1,58 @@
 #!/usr/bin/env python3
-"""Score Claude's watchlist reviews against what the rules actually did.
+"""Score Claude's reviews against what the rules actually did.
 
 Inputs (paths relative to the szones folder):
-  reviews/<D>.json      Claude's calls on the snapshots from the close of D
-                        [{ticker, call: TAKE|SKIP|WAIT, p_tp1, next_move, key_level, invalidation, reason}, ...]
-  runs/run_<N>/trades.json   the rules' trades in the next session N that has a run (handles holidays)
+  reviews/<D>.json   Claude's calls on the snapshots from the close of D
+                     [{ticker, call: TAKE|SKIP|WAIT, p_tp1, next_move, key_level, invalidation, reason}, ...]
+  runs/*/trades.json closed trades written by each run ({ticker, time = entry, tp1_hit, r, ...}).
+                     All runs are merged (deduplicated by ticker + entry time), so multi-day swing
+                     trades are scored once they close, whichever later run saw the exit.
 
-A review counts once its ticker trades in session N. Its first trade that session is the outcome.
-Claude helps only if TAKE beats all reviewed trades on average R over 50+ trades,
-and its Brier score on TP1 is lower than the base-rate Brier.
+A review counts once its ticker has a CLOSED trade entered within WINDOW calendar days after D
+(daily swing: SIGNAL = next open, WATCH = the open after the next signal close; 5 days covers
+weekends). The first such trade is the outcome. Reviews whose window has not passed, or whose trade
+is still open, are pending. Claude helps only if TAKE beats all reviewed trades on average R over
+50+ trades, and its Brier score on TP1 is lower than the base-rate Brier.
 """
-import argparse, glob, json, os
+import argparse, datetime as dt, glob, json, os
 
 ap = argparse.ArgumentParser()
 ap.add_argument('--root', default=os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-ROOT = ap.parse_args().root
-runs = sorted(os.path.basename(os.path.dirname(t))[4:]
-              for t in glob.glob(os.path.join(ROOT, 'runs', 'run_*', 'trades.json')))
-rows, pending = [], 0
+ap.add_argument('--window', type=int, default=5, help='calendar days after the review to look for an entry')
+A = ap.parse_args()
+ROOT = A.root
+
+trades, last_seen = {}, None
+for f in sorted(glob.glob(os.path.join(ROOT, 'runs', '*', 'trades.json'))):
+    run_date = os.path.basename(os.path.dirname(f)).split('_')[-1]
+    last_seen = max(last_seen or run_date, run_date)
+    for t in json.load(open(f)):
+        trades[(t['ticker'], t['time'])] = t
+open_now = []                       # open positions in the most recent run: their reviews stay pending
+runs_with_pos = sorted(glob.glob(os.path.join(ROOT, 'runs', '*', 'positions.json')),
+                       key=lambda f: os.path.basename(os.path.dirname(f)).split('_')[-1])
+if runs_with_pos:
+    open_now = json.load(open(runs_with_pos[-1]))
+by_ticker = {}
+for (tk, tm), t in sorted(trades.items(), key=lambda kv: kv[0][1]):
+    by_ticker.setdefault(tk, []).append(t)
+
+rows, pending, no_trade = [], 0, 0
 for f in sorted(glob.glob(os.path.join(ROOT, 'reviews', '*.json'))):
-    D = os.path.basename(f)[:-5]
-    nxt = [d for d in runs if d > D]
-    if not nxt:
-        pending += 1
-        continue
-    tf = os.path.join(ROOT, 'runs', f'run_{nxt[0]}', 'trades.json')
-    first = {}
-    for t in json.load(open(tf)):
-        first.setdefault(t['ticker'], t)
+    D = dt.date.fromisoformat(os.path.basename(f)[:-5])
+    end = D + dt.timedelta(days=A.window)
     for rv in json.load(open(f)):
-        t = first.get(rv['ticker'])
-        if t:
-            rows.append(dict(date=nxt[0], ticker=rv['ticker'], call=rv['call'], p=rv.get('p_tp1'),
+        hits = [t for t in by_ticker.get(rv['ticker'], [])
+                if D < dt.date.fromisoformat(t['time'][:10]) <= end]
+        if hits:
+            t = hits[0]
+            rows.append(dict(date=str(D), ticker=rv['ticker'], call=rv['call'], p=rv.get('p_tp1'),
                              r=t['r'], hit=1 if t['tp1_hit'] else 0))
+        elif (last_seen is None or dt.date.fromisoformat(last_seen) <= end
+              or any(p['ticker'] == rv['ticker'] and D < dt.date.fromisoformat(p['entry_date']) <= end for p in open_now)):
+            pending += 1           # window still open, or the trade has not closed yet
+        else:
+            no_trade += 1          # no entry in the window: nothing to score
 
 
 def grp(name, xs):
@@ -52,6 +72,6 @@ print(f'{"Group":14} {"Trades":>6} {"Avg R":>8} {"Win":>7} {"TP1":>7} {"Brier":>
 print(grp('All reviewed', rows))
 for c in ('TAKE', 'SKIP', 'WAIT'):
     print(grp(f'Claude {c}', [x for x in rows if x['call'] == c]))
-print(f'\n{len(rows)} scored trades; {pending} review day(s) still waiting for their session.')
+print(f'\n{len(rows)} scored; {pending} pending (window open or trade still running); {no_trade} reviewed but never triggered.')
 if len(rows) < 50:
     print('Fewer than 50 trades: too early to judge Claude.')

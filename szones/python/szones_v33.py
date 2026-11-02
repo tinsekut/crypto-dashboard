@@ -305,6 +305,7 @@ def run(code):
 
     run.trades = trades
     run.open = tr
+    run.pend = pend      # signal on the last bar, to be filled at the next open (nextOpen mode)
     # ── snapshot at last bar ──
     i = n - 1; a = atr[i]
     D = loadD(code)
