@@ -16,10 +16,13 @@ P = dict(emaF=21, emaS=55, htfEma=55, atr=14, z=(0.5, 1.0, 1.6, 2.4), zw=0.25, c
          st=5, pd=50, fvgMin=0.2, fvgMax=5, liq=10, liqMax=10, obLook=10, obMax=3,
          maj=20, poiLook=15, poiMax=150, sl=1.8, tp1=0.6, tp2=1.2, maxLiq=6.0, scale=0.5,
          sweepLook=5, tf=15, htfMin=60, flat=True,   # tf = chart minutes; flat = exit at session end
-         daily=False, nextOpen=False, gapFill=False)  # daily: weekly bias, no session rules; nextOpen: fill at next bar's open; gapFill: stop fills at open on a gap down
+         daily=False, nextOpen=False, gapFill=False,
+         sess=True, tickSize=None)   # sess: Bursa session rules (lunch filter, entry cut-off, flat at close); tickSize overrides the Bursa tick table  # daily: weekly bias, no session rules; nextOpen: fill at next bar's open; gapFill: stop fills at open on a gap down
 
 
 def tick(p):
+    if P.get('tickSize'):
+        return P['tickSize']
     return 0.005 if p < 1 else 0.01 if p < 10 else 0.02 if p < 100 else 0.10
 
 
@@ -74,7 +77,7 @@ def load15(code):
             continue
         m = dt.datetime.fromtimestamp(t, dt.timezone(dt.timedelta(hours=8)))
         hm = m.hour * 60 + m.minute
-        if 12 * 60 + 30 <= hm < 14 * 60 + 30:      # lunch break bars
+        if P['sess'] and 12 * 60 + 30 <= hm < 14 * 60 + 30:      # lunch break bars
             continue
         rows.append((m, o, h, l, c, v or 0))
     rmt = d['meta'].get('regularMarketTime')
@@ -137,7 +140,7 @@ def run(code):
     stH, stL = pivots(h, P['st']), pivots(l, P['st'], False)
     mjH_, mjL_ = pivots(h, P['maj']), pivots(l, P['maj'], False)
     atrAvg = np.array([np.nanmean(atr[max(0, i - 99):i + 1]) if i >= 99 else np.nan for i in range(n)])
-    lastBar = [False] * n if P['daily'] else [(i < n - 1 and T[i + 1].date() != T[i].date()) or (i == n - 1 and T[i].hour * 60 + T[i].minute + P['tf'] >= 16 * 60 + 50) for i in range(n)]
+    lastBar = [False] * n if (P['daily'] or not P['sess']) else [(i < n - 1 and T[i + 1].date() != T[i].date()) or (i == n - 1 and T[i].hour * 60 + T[i].minute + P['tf'] >= 16 * 60 + 50) for i in range(n)]
 
     S = dict(anchor=np.nan, zAtr=np.nan, zDirPrev=0, hiL=[], loL=[], bullSwBar=None, lastSH=np.nan, prevSH=np.nan,
              lastSL=np.nan, prevSL=np.nan, shB=True, slB=True, sDir=0, bullOB=[], bearOB=[], mjH=np.nan, mjHB=True,
@@ -272,7 +275,7 @@ def run(code):
                 tr['R'] += rem * (ex - tr['e']) / tr['risk'] - COST * tr['e'] / tr['risk']
                 tr['xt'] = T[i]; tr['xp'] = ex
                 trades.append(tr); tr = None
-        elif longSetup and (P['daily'] or (hm + P['tf'] <= 16 * 60 + 30 and not lastBar[i])):
+        elif longSetup and (P['daily'] or not P['sess'] or (hm + P['tf'] <= 16 * 60 + 30 and not lastBar[i])):
             chase = (c[i] - zt) / a
             ok = True
             if P.get('msbGate') and S['majDir'] == -1: ok = False

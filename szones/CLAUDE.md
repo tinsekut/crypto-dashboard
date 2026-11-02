@@ -93,6 +93,17 @@ Rolling 60-session average: **−0.196R per trade (221 trades)**. Still negative
 
 Median hold 13 days; +0.05% net per trade (+0.30% gross). By year: 2017 +26R carries the total; 2018 −12R, 2022 −9R, 2026 YTD −13R. By grade: A −0.05 (150), B +0.12 (331), C −0.06 (457) — A not better than C, so grading does not hold on daily; B's figure is one of many post-hoc cuts, not evidence. Buy-and-hold of the 48 counters listed since 2016: median +0.2%/yr, mean +4.2%/yr (price only). Universe is today's compliant, still-listed counters → survivorship bias flatters every figure here. Conclusion: longer holds stop the intraday bleed (cost per trade falls from 0.20R to ~0.06R) but the entry signal itself has no edge on Bursa at any timeframe tested. Engine: `P['daily']`, `P['nextOpen']`, `P['gapFill']`; trades record exit time `xt`.
 
+**Gold test (2 Nov 2026, OANDA:XAUUSD via TradingView, indicator defaults TP 0.6/1.2 ATR + chase 0.5 + net TP1 ≥ 0.25R, 0.02% cost, long only, next-bar fills, gap-aware stops, no Bursa session rules):** **no significant edge; intraday negative; the positive higher timeframes trail plain holding by a wide margin.**
+
+| Chart (bias) | Window | Gold move | Trades | Avg R (gross) | t | R/month |
+|---|---|---|---|---|---|---|
+| 15m (60) | 17 Aug → 30 Oct 2026 | −12% | 27 | −0.24 (−0.18) | −2.3 | −3.3 |
+| 1H (240) | 29 Dec 2025 → 30 Oct 2026 | −14% | 32 | −0.10 (−0.08) | −0.9 | −0.4 |
+| 4H (D) | Aug 2023 → Oct 2026 | +101% | 47 | +0.10 (+0.12) | +0.6 | +0.14 |
+| Daily (W) | Jul 2007 → Oct 2026 | +481% | 47 | +0.18 (+0.19) | +1.0 | +0.04 |
+
+Sensitivity (TP 1.0/2.0, cost 0.05%, close fills) moves nothing materially; at 0.05% cost the 15m cost filter rejects every signal. At 1% risk per trade, Daily ≈ +0.5%/yr and 4H ≈ +1.7%/yr versus holding gold +9.5%/yr (19 yrs) and +24%/yr (3 yrs). Daily by grade: A +0.36 (9), B +0.16 (15), C +0.12 (23) — too few trades to mean anything. One instrument, 27–47 trades per test, and each window sits in one regime (intraday windows in a falling market, 4H/daily in a bull market), so none of this is conclusive. Engine settings used: `sess=False`, `tickSize=0.01`, `COST=0.0002`.
+
 ### Lessons already built into the rules
 1. Levels must be entry-relative and tick-valid (27 Oct: morning sheet TP1 sat below DIALOG's actual entry).
 2. Don't chase: skip closes > 0.5 ATR past the zone (largest single improvement).
@@ -198,7 +209,7 @@ python3 szones_scorecard.py
 3. (done 2 Nov) Manual updated to v3.3.2.
 4. (done 2 Nov) 1H with overnight holds: least bad (−0.11R net, +0.03R gross) but still negative. Daily swing tested 2 Nov: break-even (+0.003R, t = 0.10), no edge (section 3).
 5. Refresh the Shariah list after 27 Nov 2026.
-6. Gold (XAUUSD) has never been tested with these rules — validate before trusting grades there.
+6. (done 2 Nov) Gold tested: no significant edge at any timeframe; 4H/daily positive but far behind holding gold (section 3).
 
 ---
 
