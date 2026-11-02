@@ -15,7 +15,8 @@ COST = 0.0025          # ~0.25% round trip: brokerage + clearing + stamp duty (a
 P = dict(emaF=21, emaS=55, htfEma=55, atr=14, z=(0.5, 1.0, 1.6, 2.4), zw=0.25, center=34,
          st=5, pd=50, fvgMin=0.2, fvgMax=5, liq=10, liqMax=10, obLook=10, obMax=3,
          maj=20, poiLook=15, poiMax=150, sl=1.8, tp1=0.6, tp2=1.2, maxLiq=6.0, scale=0.5,
-         sweepLook=5, tf=15, htfMin=60, flat=True)   # tf = chart minutes; flat = exit at session end
+         sweepLook=5, tf=15, htfMin=60, flat=True,   # tf = chart minutes; flat = exit at session end
+         daily=False, nextOpen=False, gapFill=False)  # daily: weekly bias, no session rules; nextOpen: fill at next bar's open; gapFill: stop fills at open on a gap down
 
 
 def tick(p):
@@ -91,6 +92,23 @@ def loadD(code):
     return rows
 
 
+def _open(e, a, i, t, sig, S):
+    """Levels from the actual fill price e; None if the cost filter rejects it."""
+    tk = tick(e)
+    if P.get('ticks'):
+        sl = math.floor(round((e - a * P['sl']) / tk, 6)) * tk
+        t1 = max(math.ceil(round((e + a * P['tp1']) / tk, 6)) * tk, e + P.get('minTk', 1) * tk)
+    else:
+        sl = e - a * P['sl']; t1 = e + a * P['tp1']
+    risk = e - sl
+    if risk <= 0 or (P.get('minNet') is not None and ((t1 - e) - COST * e) / risk < P['minNet']):
+        return None
+    liq = [y for y in S['hiL'] if y > t1 and y - e <= P['maxLiq'] * a]
+    t2 = min(liq) if liq else (math.ceil(round((e + a * P['tp2']) / tk, 6)) * tk if P.get('ticks') else e + a * P['tp2'])
+    return dict(i=i, t=t, e=e, stop=sl, risk=risk, t1=t1, t2=t2, tp1=False, tp2=False,
+                R=0.0, grade=sig['grade'], zone=sig['zone'], maj=sig['maj'], chase=sig['chase'])
+
+
 def run(code):
     rows, meta = load15(code)
     n = len(rows)
@@ -100,7 +118,8 @@ def run(code):
     eF, eS, cen = ema(c, P['emaF']), ema(c, P['emaS']), ema(c, P['center'])
 
     # HTF 60m: resample, then each 15m bar sees the PREVIOUS completed hour (close[1] + lookahead_on)
-    hkey = [(t.date(), (t.hour * 60 + t.minute) // P['htfMin']) for t in T]
+    hkey = ([tuple(t.isocalendar()[:2]) for t in T] if P['daily'] else
+            [(t.date(), (t.hour * 60 + t.minute) // P['htfMin']) for t in T])
     keys, hc = [], []
     for i, k in enumerate(hkey):
         if not keys or keys[-1] != k:
@@ -118,13 +137,14 @@ def run(code):
     stH, stL = pivots(h, P['st']), pivots(l, P['st'], False)
     mjH_, mjL_ = pivots(h, P['maj']), pivots(l, P['maj'], False)
     atrAvg = np.array([np.nanmean(atr[max(0, i - 99):i + 1]) if i >= 99 else np.nan for i in range(n)])
-    lastBar = [(i < n - 1 and T[i + 1].date() != T[i].date()) or (i == n - 1 and T[i].hour * 60 + T[i].minute + P['tf'] >= 16 * 60 + 50) for i in range(n)]
+    lastBar = [False] * n if P['daily'] else [(i < n - 1 and T[i + 1].date() != T[i].date()) or (i == n - 1 and T[i].hour * 60 + T[i].minute + P['tf'] >= 16 * 60 + 50) for i in range(n)]
 
     S = dict(anchor=np.nan, zAtr=np.nan, zDirPrev=0, hiL=[], loL=[], bullSwBar=None, lastSH=np.nan, prevSH=np.nan,
              lastSL=np.nan, prevSL=np.nan, shB=True, slB=True, sDir=0, bullOB=[], bearOB=[], mjH=np.nan, mjHB=True,
              mjL=np.nan, mjLB=True, majDir=0, msbBar=None, msbLvl=np.nan, legExt=np.nan, idm=np.nan, idmTaken=False,
              bullF=[], bearF=[], poi=None)
     tr = None
+    pend = None
     trades = []
     for i in range(n):
         if np.isnan(atr[i]) or np.isnan(eS[i]) or np.isnan(htfE[i]):
@@ -225,11 +245,16 @@ def run(code):
         longSetup = zDir == 1 and hit > 0 and c[i] > o[i] and c[i] > zt
         hm = T[i].hour * 60 + T[i].minute
 
+        # next-open fill of yesterday's signal (daily mode)
+        if pend is not None and not tr:
+            tr = _open(o[i], pend['a'], i, T[i], pend, S)
+        pend = None
+
         # trade management (stop first)
         if tr:
             ex = None
             if l[i] <= tr['stop']:
-                ex = tr['stop']; tr['how'] = 'BE' if tr['tp2'] else 'SL'
+                ex = min(tr['stop'], o[i]) if P['gapFill'] else tr['stop']; tr['how'] = 'BE' if tr['tp2'] else 'SL'
             else:
                 if not tr['tp1'] and h[i] >= tr['t1']:
                     tr['tp1'] = True; tr['R'] += P['scale'] * (tr['t1'] - tr['e']) / tr['risk']
@@ -245,25 +270,19 @@ def run(code):
             if ex is not None:
                 rem = 1 - P['scale'] if tr['tp1'] else 1.0
                 tr['R'] += rem * (ex - tr['e']) / tr['risk'] - COST * tr['e'] / tr['risk']
+                tr['xt'] = T[i]; tr['xp'] = ex
                 trades.append(tr); tr = None
-        elif longSetup and hm + P['tf'] <= 16 * 60 + 30 and not lastBar[i]:
-            e = c[i]; tk = tick(e)
-            chase = (e - zt) / a
+        elif longSetup and (P['daily'] or (hm + P['tf'] <= 16 * 60 + 30 and not lastBar[i])):
+            chase = (c[i] - zt) / a
             ok = True
             if P.get('msbGate') and S['majDir'] == -1: ok = False
             if P.get('chase') is not None and chase > P['chase']: ok = False
-            if P.get('ticks'):
-                sl = math.floor(round((e - a * P['sl']) / tk, 6)) * tk
-                t1 = max(math.ceil(round((e + a * P['tp1']) / tk, 6)) * tk, e + P.get('minTk', 1) * tk)
-            else:
-                sl = e - a * P['sl']; t1 = e + a * P['tp1']
-            risk = e - sl
-            if P.get('minNet') is not None and ((t1 - e) - COST * e) / risk < P['minNet']: ok = False
             if ok:
-                liq = [y for y in S['hiL'] if y > t1 and y - e <= P['maxLiq'] * a]
-                t2 = min(liq) if liq else (math.ceil(round((e + a * P['tp2']) / tk, 6)) * tk if P.get('ticks') else e + a * P['tp2'])
-                tr = dict(i=i, t=T[i], e=e, stop=sl, risk=risk, t1=t1, t2=t2, tp1=False, tp2=False,
-                          R=0.0, grade=grade, zone=hit, maj=S['majDir'], chase=chase)
+                sig = dict(grade=grade, zone=hit, maj=S['majDir'], chase=chase, a=a)
+                if P['nextOpen']:
+                    pend = sig
+                else:
+                    tr = _open(c[i], a, i, T[i], sig, S)
 
         # POI on MSB (analyst view)
         if msbUp or msbDn:

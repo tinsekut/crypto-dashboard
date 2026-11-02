@@ -81,6 +81,18 @@ Rolling 60-session average: **−0.196R per trade (221 trades)**. Still negative
 
 5m has no edge even before costs, and costs (0.26R/trade at a ~1% stop) double the loss. Only 60m is about break-even gross. Same ranking on the common 159-session window. 4H HTF buckets are clock-aligned (approximation). Engine now takes `P['tf']`, `P['htfMin']`, `P['flat']`; tf=15 reproduces Fri 30 Oct exactly. Data delay (~15 min on all free feeds) also rules out true real-time on 5m.
 
+**Daily swing test (2 Nov 2026, TradingView daily, 57 counters, trades 2016 → 30 Oct 2026, weekly bias, entry at next day's open, gap-aware stops, 0.25% cost, long only):** **break-even, no edge.**
+
+| Variant | Trades | Avg R | Win | R/year | Halves |
+|---|---|---|---|---|---|
+| Daily preset, all signals | 938 | +0.003 (t = 0.10) | 43% | +0.3 | +0.04 / −0.03 |
+| Max 3 open positions (manual rule) | 404 | +0.020 | 45% | +0.7 | +0.17 / −0.13 |
+| Fill at signal close (optimistic) | 939 | −0.023 | 41% | −2.0 | −0.01 / −0.04 |
+| TP 0.6 / 1.2 ATR | 893 | +0.009 | 44% | +0.7 | +0.06 / −0.04 |
+| No chase guard / cost filter | 1,476 | +0.017 | 45% | +2.3 | +0.06 / −0.02 |
+
+Median hold 13 days; +0.05% net per trade (+0.30% gross). By year: 2017 +26R carries the total; 2018 −12R, 2022 −9R, 2026 YTD −13R. By grade: A −0.05 (150), B +0.12 (331), C −0.06 (457) — A not better than C, so grading does not hold on daily; B's figure is one of many post-hoc cuts, not evidence. Buy-and-hold of the 48 counters listed since 2016: median +0.2%/yr, mean +4.2%/yr (price only). Universe is today's compliant, still-listed counters → survivorship bias flatters every figure here. Conclusion: longer holds stop the intraday bleed (cost per trade falls from 0.20R to ~0.06R) but the entry signal itself has no edge on Bursa at any timeframe tested. Engine: `P['daily']`, `P['nextOpen']`, `P['gapFill']`; trades record exit time `xt`.
+
 ### Lessons already built into the rules
 1. Levels must be entry-relative and tick-valid (27 Oct: morning sheet TP1 sat below DIALOG's actual entry).
 2. Don't chase: skip closes > 0.5 ATR past the zone (largest single improvement).
@@ -184,7 +196,7 @@ python3 szones_scorecard.py
 1. Weekday 17:15 MYT evening routine (section 6). Data access working since 2 Nov (section 4). For EODHD, tIn adds `EODHD_API_KEY` as an environment secret.
 2. Collect ≥50 scored trades before judging Claude's reviews.
 3. (done 2 Nov) Manual updated to v3.3.2.
-4. (done 2 Nov) 1H with overnight holds: least bad (−0.11R net, +0.03R gross) but still negative. Next candidate: daily-chart swing (untested).
+4. (done 2 Nov) 1H with overnight holds: least bad (−0.11R net, +0.03R gross) but still negative. Daily swing tested 2 Nov: break-even (+0.003R, t = 0.10), no edge (section 3).
 5. Refresh the Shariah list after 27 Nov 2026.
 6. Gold (XAUUSD) has never been tested with these rules — validate before trusting grades there.
 
