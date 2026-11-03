@@ -1,0 +1,54 @@
+[
+ {
+  "ticker": "SIME",
+  "entry_date": "2026-10-15",
+  "grade": "A",
+  "entry": 2.45,
+  "stop": 2.32,
+  "tp1": 2.52,
+  "tp2": 2.68,
+  "tp1_hit": false,
+  "tp2_hit": false,
+  "close": 2.5,
+  "open_r": 0.385
+ },
+ {
+  "ticker": "GAMUDA",
+  "entry_date": "2026-10-22",
+  "grade": "A",
+  "entry": 4.83,
+  "stop": 4.6,
+  "tp1": 4.96,
+  "tp2": 5.28,
+  "tp1_hit": true,
+  "tp2_hit": false,
+  "close": 4.86,
+  "open_r": 0.348
+ },
+ {
+  "ticker": "FRONTKN",
+  "entry_date": "2026-09-30",
+  "grade": "A",
+  "entry": 4.98,
+  "stop": 4.75,
+  "tp1": 5.11,
+  "tp2": 5.4,
+  "tp1_hit": true,
+  "tp2_hit": false,
+  "close": 5.07,
+  "open_r": 0.478
+ },
+ {
+  "ticker": "KGB",
+  "entry_date": "2026-10-16",
+  "grade": "A",
+  "entry": 8.55,
+  "stop": 8.04,
+  "tp1": 8.84,
+  "tp2": 9.25,
+  "tp1_hit": false,
+  "tp2_hit": false,
+  "close": 8.5,
+  "open_r": -0.098
+ }
+]

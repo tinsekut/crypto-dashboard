@@ -1,0 +1,262 @@
+[
+ {
+  "code": "4863",
+  "ticker": "TM",
+  "tf": "D",
+  "time": "2026-11-02",
+  "price": 7.93,
+  "dir": 1,
+  "trend": {
+   "bias": 1,
+   "htf_bull": true,
+   "struct": 1,
+   "discount": false,
+   "squeeze": false
+  },
+  "zones": {
+   "next": 1,
+   "dist_z1_atr": 0.788,
+   "z1": [
+    7.7771,
+    7.814
+   ],
+   "z2": [
+    7.7035,
+    7.7403
+   ],
+   "z3": [
+    7.6151,
+    7.6519
+   ],
+   "z4": [
+    7.4972,
+    7.534
+   ]
+  },
+  "smc": {
+   "maj": 1,
+   "msb": 7.85,
+   "idm": null,
+   "leg_ext": 8.18,
+   "ext": 8.538441,
+   "bsl": 8.18,
+   "ssl": 7.3
+  },
+  "atr": 0.147332,
+  "atr_pct": 1.858,
+  "adv_rm": 25038410,
+  "stats": {
+   "n": 2,
+   "avg_r": -0.916
+  },
+  "cost_pct": 0.25,
+  "long_only": true,
+  "event": "WATCH",
+  "id": "TM-2026-11-02",
+  "grade": "A",
+  "reasons": "BOS P/D",
+  "plan": {
+   "trigger_close": 7.82,
+   "max_close": 7.88,
+   "entry": "open after the signal close",
+   "sl": 7.55,
+   "tp1": 7.97,
+   "net_tp1_r": 0.483
+  }
+ },
+ {
+  "code": "0097",
+  "ticker": "VITROX",
+  "tf": "D",
+  "time": "2026-11-02",
+  "price": 10.48,
+  "dir": 1,
+  "trend": {
+   "bias": 1,
+   "htf_bull": true,
+   "struct": 1,
+   "discount": false,
+   "squeeze": false
+  },
+  "zones": {
+   "next": 1,
+   "dist_z1_atr": 0.669,
+   "z1": [
+    10.1326,
+    10.2271
+   ],
+   "z2": [
+    9.9435,
+    10.038
+   ],
+   "z3": [
+    9.7166,
+    9.8111
+   ],
+   "z4": [
+    9.414,
+    9.5086
+   ]
+  },
+  "smc": {
+   "maj": 1,
+   "msb": 9.65,
+   "idm": null,
+   "leg_ext": 11.3,
+   "ext": 12.6596,
+   "bsl": 11.3,
+   "ssl": 8.84
+  },
+  "atr": 0.378207,
+  "atr_pct": 3.609,
+  "adv_rm": 35850908,
+  "stats": {
+   "n": 1,
+   "avg_r": 0.177
+  },
+  "cost_pct": 0.25,
+  "long_only": true,
+  "event": "WATCH",
+  "id": "VITROX-2026-11-02",
+  "grade": "A",
+  "reasons": "BOS FVG",
+  "plan": {
+   "trigger_close": 10.24,
+   "max_close": 10.4,
+   "entry": "open after the signal close",
+   "sl": 9.54,
+   "tp1": 10.62,
+   "net_tp1_r": 0.506
+  }
+ },
+ {
+  "code": "0208",
+  "ticker": "GREATEC",
+  "tf": "D",
+  "time": "2026-11-02",
+  "price": 2.56,
+  "dir": 1,
+  "trend": {
+   "bias": 1,
+   "htf_bull": true,
+   "struct": 1,
+   "discount": true,
+   "squeeze": false
+  },
+  "zones": {
+   "next": 1,
+   "dist_z1_atr": -0.134,
+   "z1": [
+    2.55,
+    2.5715
+   ],
+   "z2": [
+    2.5069,
+    2.5284
+   ],
+   "z3": [
+    2.4552,
+    2.4768
+   ],
+   "z4": [
+    2.3863,
+    2.4079
+   ]
+  },
+  "smc": {
+   "maj": 1,
+   "msb": 2.78,
+   "idm": null,
+   "leg_ext": 2.84,
+   "ext": 3.0254,
+   "bsl": 2.84,
+   "ssl": 2.46
+  },
+  "atr": 0.085687,
+  "atr_pct": 3.347,
+  "adv_rm": 13917179,
+  "stats": {
+   "n": 1,
+   "avg_r": -1.031
+  },
+  "cost_pct": 0.25,
+  "long_only": true,
+  "event": "WATCH",
+  "id": "GREATEC-2026-11-02",
+  "grade": "A",
+  "reasons": "BOS P/D",
+  "plan": {
+   "trigger_close": 2.58,
+   "max_close": 2.61,
+   "entry": "open after the signal close",
+   "sl": 2.42,
+   "tp1": 2.67,
+   "net_tp1_r": 0.522
+  }
+ },
+ {
+  "code": "7160",
+  "ticker": "PENTA",
+  "tf": "D",
+  "time": "2026-11-02",
+  "price": 5.47,
+  "dir": 1,
+  "trend": {
+   "bias": 1,
+   "htf_bull": true,
+   "struct": 1,
+   "discount": true,
+   "squeeze": false
+  },
+  "zones": {
+   "next": 1,
+   "dist_z1_atr": 0.201,
+   "z1": [
+    5.3578,
+    5.4201
+   ],
+   "z2": [
+    5.233,
+    5.2954
+   ],
+   "z3": [
+    5.0832,
+    5.1456
+   ],
+   "z4": [
+    4.8835,
+    4.9459
+   ]
+  },
+  "smc": {
+   "maj": 1,
+   "msb": 5.84,
+   "idm": null,
+   "leg_ext": 6.16,
+   "ext": 6.85834,
+   "bsl": 6.16,
+   "ssl": 5.03
+  },
+  "atr": 0.248196,
+  "atr_pct": 4.537,
+  "adv_rm": 25166038,
+  "stats": {
+   "n": 2,
+   "avg_r": 1.042
+  },
+  "cost_pct": 0.25,
+  "long_only": true,
+  "event": "WATCH",
+  "id": "PENTA-2026-11-02",
+  "grade": "A",
+  "reasons": "BOS P/D FVG",
+  "plan": {
+   "trigger_close": 5.43,
+   "max_close": 5.54,
+   "entry": "open after the signal close",
+   "sl": 4.98,
+   "tp1": 5.68,
+   "net_tp1_r": 0.525
+  }
+ }
+]
