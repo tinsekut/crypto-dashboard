@@ -1,0 +1,8 @@
+[
+ {"ticker": "PENTA", "event": "WATCH", "call": "TAKE", "p_tp1": 0.56, "next_move": "down", "horizon_bars": 5, "key_level": 5.3, "invalidation": 4.84, "reason": "BOS + discount + FVG, the best-tested mix; 0.6 ATR into Z2. Volatile (ATR 4.8%) and 5.20 SSL could be swept first. Slightly above base."},
+ {"ticker": "TM", "event": "WATCH", "call": "WAIT", "p_tp1": 0.52, "next_move": "down", "horizon_bars": 8, "key_level": 7.85, "invalidation": 7.54, "reason": "BOS but premium, 0.56 ATR above Z1. Trigger sits on the 7.85 MSB retest, but 7.53 SSL is right under the 7.54 stop. Near base."},
+ {"ticker": "VITROX", "event": "WATCH", "call": "WAIT", "p_tp1": 0.5, "next_move": "down", "horizon_bars": 8, "key_level": 10.24, "invalidation": 9.56, "reason": "BOS + FVG but premium and an overhead barrier (grade B). Needs a pullback of 0.5 ATR first. Slightly below base."},
+ {"ticker": "UWC", "event": "WATCH", "call": "WAIT", "p_tp1": 0.48, "next_move": "up", "horizon_bars": 5, "key_level": 6.98, "invalidation": 6.27, "reason": "Discount only, structure down (no BOS). TP1 7.11 sits at the top of Z1; needs a reclaim of the 6.98 MSB. Below base."},
+ {"ticker": "NATGATE", "event": "WATCH", "call": "WAIT", "p_tp1": 0.5, "next_move": "down", "horizon_bars": 8, "key_level": 1.92, "invalidation": 1.72, "reason": "BOS + FVG but premium, 0.87 ATR above Z1; needs a drop to 1.92-1.97 first. Very volatile (ATR 5.3%), no trade history. Near base."},
+ {"ticker": "INARI", "event": "WATCH", "call": "SKIP", "p_tp1": 0.44, "next_move": "down", "horizon_bars": 5, "key_level": 2.37, "invalidation": 2.19, "reason": "Structure has turned down (no BOS); 1.7 ATR below Z1, now at Z4. 2.18 SSL sits just under the 2.19 stop. Below base."}
+]
