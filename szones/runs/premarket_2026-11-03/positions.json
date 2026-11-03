@@ -27,16 +27,29 @@
  },
  {
   "ticker": "FRONTKN",
-  "entry_date": "2026-09-30",
-  "grade": "A",
-  "entry": 4.98,
-  "stop": 4.75,
-  "tp1": 5.11,
+  "entry_date": "2026-09-18",
+  "grade": "B",
+  "entry": 4.9,
+  "stop": 4.69,
+  "tp1": 5.02,
   "tp2": 5.4,
   "tp1_hit": true,
   "tp2_hit": false,
   "close": 5.07,
-  "open_r": 0.478
+  "open_r": 0.69
+ },
+ {
+  "ticker": "GREATEC",
+  "entry_date": "2026-10-15",
+  "grade": "B",
+  "entry": 2.49,
+  "stop": 2.32,
+  "tp1": 2.59,
+  "tp2": 2.93,
+  "tp1_hit": true,
+  "tp2_hit": false,
+  "close": 2.56,
+  "open_r": 0.5
  },
  {
   "ticker": "KGB",

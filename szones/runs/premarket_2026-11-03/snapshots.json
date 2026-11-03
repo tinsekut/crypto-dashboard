@@ -46,8 +46,8 @@
   "atr_pct": 1.858,
   "adv_rm": 25038410,
   "stats": {
-   "n": 2,
-   "avg_r": -0.916
+   "n": 5,
+   "avg_r": -0.183
   },
   "cost_pct": 0.25,
   "long_only": true,
@@ -62,6 +62,71 @@
    "sl": 7.55,
    "tp1": 7.97,
    "net_tp1_r": 0.483
+  }
+ },
+ {
+  "code": "0166",
+  "ticker": "INARI",
+  "tf": "D",
+  "time": "2026-11-02",
+  "price": 2.46,
+  "dir": 1,
+  "trend": {
+   "bias": 1,
+   "htf_bull": true,
+   "struct": 1,
+   "discount": true,
+   "squeeze": false
+  },
+  "zones": {
+   "next": 3,
+   "dist_z1_atr": -0.93,
+   "z1": [
+    2.5248,
+    2.5485
+   ],
+   "z2": [
+    2.4772,
+    2.501
+   ],
+   "z3": [
+    2.4202,
+    2.4439
+   ],
+   "z4": [
+    2.3441,
+    2.3679
+   ]
+  },
+  "smc": {
+   "maj": 1,
+   "msb": 2.74,
+   "idm": null,
+   "leg_ext": 2.88,
+   "ext": 2.96652,
+   "bsl": 2.88,
+   "ssl": 2.18
+  },
+  "atr": 0.095155,
+  "atr_pct": 3.868,
+  "adv_rm": 44702773,
+  "stats": {
+   "n": 3,
+   "avg_r": -0.11
+  },
+  "cost_pct": 0.25,
+  "long_only": true,
+  "event": "WATCH",
+  "id": "INARI-2026-11-02",
+  "grade": "B",
+  "reasons": "BOS P/D barrier",
+  "plan": {
+   "trigger_close": 2.45,
+   "max_close": 2.49,
+   "entry": "open after the signal close",
+   "sl": 2.27,
+   "tp1": 2.55,
+   "net_tp1_r": 0.522
   }
  },
  {
@@ -111,8 +176,8 @@
   "atr_pct": 3.609,
   "adv_rm": 35850908,
   "stats": {
-   "n": 1,
-   "avg_r": 0.177
+   "n": 5,
+   "avg_r": -0.396
   },
   "cost_pct": 0.25,
   "long_only": true,
@@ -127,71 +192,6 @@
    "sl": 9.54,
    "tp1": 10.62,
    "net_tp1_r": 0.506
-  }
- },
- {
-  "code": "0208",
-  "ticker": "GREATEC",
-  "tf": "D",
-  "time": "2026-11-02",
-  "price": 2.56,
-  "dir": 1,
-  "trend": {
-   "bias": 1,
-   "htf_bull": true,
-   "struct": 1,
-   "discount": true,
-   "squeeze": false
-  },
-  "zones": {
-   "next": 1,
-   "dist_z1_atr": -0.134,
-   "z1": [
-    2.55,
-    2.5715
-   ],
-   "z2": [
-    2.5069,
-    2.5284
-   ],
-   "z3": [
-    2.4552,
-    2.4768
-   ],
-   "z4": [
-    2.3863,
-    2.4079
-   ]
-  },
-  "smc": {
-   "maj": 1,
-   "msb": 2.78,
-   "idm": null,
-   "leg_ext": 2.84,
-   "ext": 3.0254,
-   "bsl": 2.84,
-   "ssl": 2.46
-  },
-  "atr": 0.085687,
-  "atr_pct": 3.347,
-  "adv_rm": 13917179,
-  "stats": {
-   "n": 1,
-   "avg_r": -1.031
-  },
-  "cost_pct": 0.25,
-  "long_only": true,
-  "event": "WATCH",
-  "id": "GREATEC-2026-11-02",
-  "grade": "A",
-  "reasons": "BOS P/D",
-  "plan": {
-   "trigger_close": 2.58,
-   "max_close": 2.61,
-   "entry": "open after the signal close",
-   "sl": 2.42,
-   "tp1": 2.67,
-   "net_tp1_r": 0.522
   }
  },
  {
@@ -241,8 +241,8 @@
   "atr_pct": 4.537,
   "adv_rm": 25166038,
   "stats": {
-   "n": 2,
-   "avg_r": 1.042
+   "n": 4,
+   "avg_r": 0.475
   },
   "cost_pct": 0.25,
   "long_only": true,

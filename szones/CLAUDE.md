@@ -1,6 +1,6 @@
 # SZones — project handoff for Claude Code
 
-**As of:** Mon 2 Nov 2026, ~19:30 MYT (originally written 07:36 MYT; updated through the day; twice-daily routines and the SZones Brief dashboard added in the evening). Latest backtest data: Fri 30 Oct close.
+**As of:** Tue 3 Nov 2026, ~08:35 MYT (handoff written 2 Nov 07:36 MYT; twice-daily routines and the SZones Brief dashboard added 2 Nov evening; paper record switched to grades A and B on 3 Nov before the first forward session). Latest backtest data: Fri 30 Oct close.
 **Owner:** tIn (Malaysia, Asia/Kuala_Lumpur). Trades Bursa Malaysia (Shariah-compliant only, long only) and gold.
 **Use this file as `CLAUDE.md` in the project folder.** It is the single source of truth for the new session.
 
@@ -35,7 +35,7 @@ A Pine Script v6 TradingView indicator: trend-pullback zones (4 ATR bands off a 
 | v3.3.3 | Defaults only: daily swing, grade A only (long only, Bursa ticks, 0.25% cost, HTF W, TP1 1.0 / TP2 2.0, minimum grade A). Logic identical to v3.3.2. Use on a daily chart |
 | **v3.3.4 (current)** | Dashboard: Compact (default) / Full layout; new Timing row — next signal check, entry at next open, typical TP1/TP2/exit date ranges (25th–75th percentile) from this chart's 5+ closed trades, else daily grade A backtest (TP1 2 bars [1–5] 47% reach, TP2 13 [6–20] 25%, exit 7 [3–23]). Weekends skipped, holidays not. Signal logic unchanged |
 
-Current script: `pine/SZones_v3_3_4.pine` (v3.3.2 and v3.3.3 kept for reference). Not compile-checked here (no Pine compiler in the container); tIn compiles on TradingView.
+Current script: `pine/SZones_v3_3_4.pine` (v3.3.2 and v3.3.3 kept for reference). Its default Minimum grade is still "A only": since 3 Nov tIn sets it to "A and B" in the indicator settings to match the paper record. Not compile-checked here (no Pine compiler in the container); tIn compiles on TradingView.
 
 ### Bursa intraday preset (what it forces)
 
@@ -95,16 +95,16 @@ Rolling 60-session average: **−0.196R per trade (221 trades)**. Still negative
 
 Median hold 13 days; +0.05% net per trade (+0.30% gross). By year: 2017 +26R carries the total; 2018 −12R, 2022 −9R, 2026 YTD −13R. By grade: A −0.05 (150), B +0.12 (331), C −0.06 (457) — A not better than C, so grading does not hold on daily; B's figure is one of many post-hoc cuts, not evidence. Buy-and-hold of the 48 counters listed since 2016: median +0.2%/yr, mean +4.2%/yr (price only). Universe is today's compliant, still-listed counters → survivorship bias flatters every figure here. Conclusion: longer holds stop the intraday bleed (cost per trade falls from 0.20R to ~0.06R) but the entry signal itself has no edge on Bursa at any timeframe tested. Engine: `P['daily']`, `P['nextOpen']`, `P['gapFill']`; trades record exit time `xt`.
 
-**Daily grade filter (2 Nov 2026, same daily backtest, filter applied in the engine via `P['minGrade']`):** tIn chose **grade A only** for the paper record. Evidence does not favour it:
+**Daily grade filter (2 Nov 2026, same daily backtest, filter applied in the engine via `P['minGrade']`):** tIn chose grade A only on 2 Nov, then **grades A and B from 3 Nov 2026** (before the first forward session) for the paper record:
 
 | Grades traded | Trades | Avg R | t | Win | TP1 | Halves |
 |---|---|---|---|---|---|---|
 | All | 938 | +0.003 | +0.10 | 43% | 55% | +0.04 / −0.03 |
-| A and B | 569 | +0.038 | +0.85 | 45% | 55% | +0.00 / +0.07 |
-| **A only (live setting)** | 212 | −0.024 | −0.30 | 38% | 47% | −0.09 / +0.04 |
+| **A and B (live setting from 3 Nov)** | 569 | +0.038 | +0.85 | 45% | 55% | +0.00 / +0.07 |
+| A only (2 Nov setting) | 212 | −0.024 | −0.30 | 38% | 47% | −0.09 / +0.04 |
 | A only, max 3 open | 189 | −0.003 | −0.03 | 39% | 47% | −0.09 / +0.08 |
 
-None is significant. Replaying the last 12 months through the live pipeline (Yahoo, 5-year history) gave A only −0.13R over 26 trades versus +0.05R over 29 on TradingView's 20-year series — the difference is within noise (standard error ≈ 0.2R) but shows the data-source sensitivity.
+None is significant. Replaying the last 12 months with A and B through the live pipeline gave −0.03R over 62 trades (3 Nov). Earlier, replaying the last 12 months through the live pipeline (Yahoo, 5-year history) gave A only −0.13R over 26 trades versus +0.05R over 29 on TradingView's 20-year series — the difference is within noise (standard error ≈ 0.2R) but shows the data-source sensitivity.
 
 **Gold test (2 Nov 2026, OANDA:XAUUSD via TradingView, indicator defaults TP 0.6/1.2 ATR + chase 0.5 + net TP1 ≥ 0.25R, 0.02% cost, long only, next-bar fills, gap-aware stops, no Bursa session rules):** **no significant edge; intraday negative; the positive higher timeframes trail plain holding by a wide margin.**
 
@@ -193,7 +193,7 @@ python3 szones_swing.py --date D --workdir ../runs/swing_D
 python3 szones_scorecard.py
 ```
 
-`szones_swing.py` uses exactly the daily backtest settings (section 3), **grade A only** (`--min-grade A`, tIn's choice on 2 Nov; see the grade-filter table): daily chart, weekly bias, chase 0.5 ATR, net TP1 ≥ 0.25R, TP1 1.0 / TP2 2.0 ATR, SL 1.8 ATR, runner, **entry at the next day's open** after a green signal close, gap-aware stops, 0.25% cost, long only, ~5 years of daily bars via the fallback chain (`mode='daily'`). No position cap in the record (backtest primary); note when more than 3 are open. Forward paper record counts only trades entered from **Tue 3 Nov 2026**; positions open on 2 Nov came from replaying the rules and are labelled "inherited".
+`szones_swing.py` uses exactly the daily backtest settings (section 3), **grades A and B** (default `--min-grade B`, tIn's choice on 3 Nov; A only on 2 Nov; see the grade-filter table): daily chart, weekly bias, chase 0.5 ATR, net TP1 ≥ 0.25R, TP1 1.0 / TP2 2.0 ATR, SL 1.8 ATR, runner, **entry at the next day's open** after a green signal close, gap-aware stops, 0.25% cost, long only, ~5 years of daily bars via the fallback chain (`mode='daily'`). No position cap in the record (backtest primary); note when more than 3 are open. Forward paper record counts only trades entered from **Tue 3 Nov 2026**; positions open on 2 Nov came from replaying the rules and are labelled "inherited".
 
 1. Outputs in `runs/swing_D/`: `snapshots.json` (SIGNAL = fired at today's close, buy at the next open; WATCH = within 1 ATR of the next zone, A/B, valid trigger, net TP1 ≥ 0.25R, ADV ≥ RM10m, no squeeze — could signal at the next close), `trades.json` (closed trades, entries in the last 400 days), `positions.json` (open), `sources.json`.
 2. Review every snapshot and write `reviews/D.json` **before** the next open: `[{ticker, event, call, p_tp1, next_move, horizon_bars, key_level, invalidation, reason}]`. Never edit a review after the next session opens.
@@ -225,7 +225,7 @@ The 15m routine (`szones_daily.py`) still works but is no longer scheduled.
 **Review rules (keep identical across sessions, or the scorecard means nothing):**
 - Use only the numbers in the snapshot. No news, prices or fundamentals from outside it.
 - Long only. SIGNAL: entry at the next open, stop/targets re-based on that open. WATCH: only if the next daily candle closes green between plan.trigger_close and plan.max_close; skip if net_tp1_r < 0.25.
-- Base rate (daily backtest 2016–2026, grade A only, 212 trades): about 0R per trade after costs (−0.024R), win 38%, TP1 reached on 47%, median hold about 2 weeks. Stay near it unless the snapshot gives concrete reasons (structure, discount/premium, FVG, barriers, squeeze, distance to liquidity, weekly bias).
+- Base rate (daily backtest 2016–2026, grades A and B, 569 trades; live setting since 3 Nov): about 0R per trade after costs (+0.038R), win 45%, TP1 reached on 55%, median hold about 2 weeks. (Grade A only, used for the 2 Nov reviews: −0.024R, win 38%, TP1 47%.) Stay near it unless the snapshot gives concrete reasons (structure, discount/premium, FVG, barriers, squeeze, distance to liquidity, weekly bias).
 - call: TAKE (would take it), SKIP (would not), WAIT (not enough to judge). p_tp1 in 0–1. reason ≤ 160 characters, plain English.
 
 **Judging Claude:** `szones_scorecard.py` merges closed trades from every run, matches each review to that ticker's first trade entered within 5 calendar days after the review, and keeps it pending while the trade is open. Claude helps only if TAKE beats all reviewed trades on average R over 50+ trades, and its Brier score on TP1 is below the base-rate Brier. Until then the rules decide; Claude's call is logged beside them.
@@ -239,7 +239,7 @@ The 15m routine (`szones_daily.py`) still works but is no longer scheduled.
 - Code and run history: GitHub `tinsekut/crypto-dashboard`, branch `claude/szones-handoff`, folder `szones/` (includes the vendored TradingView library).
 - Google Drive copy of the latest files: folder "SZones latest — v3.3.4 (2 Nov 2026)" (the original morning bundle stays in "SZones handoff (2 Nov 2026)"; its obsolete relay script and AI setup checklist were moved to the Drive trash on 2 Nov).
 - Dashboard "SZones Brief" (pre-open and evening editions, refreshed by both routines): https://claude.ai/artifact/Kt4NUYMt5fGiE2U3j1v1cj
-- User manual (Claude Docs): https://claude.ai/artifact/SmpGy7mJL8PmKh7GqivdyE (id d0b653aa-7795-4f40-a063-8b8afb279e65) — updated 2 Nov to **v3.3.4** (dashboard layouts, "Timing row" subsection, Layout / Show timing estimates in the settings table, v3.3.3 defaults), with the sections "Test results (2 Nov 2026)" (timeframes, daily grade filter, gold) and "Daily swing routine (grade A only)" (rules, the twice-daily schedule 08:12 + 17:15 MYT, evening report, the SZones Brief dashboard, Claude's review, TradingView settings to mirror it; schedule and dashboard added 2 Nov evening). Daily loss limit confirmed by tIn on 2 Nov: 2 consecutive losses or −3R, no weekly cap.
+- User manual (Claude Docs): https://claude.ai/artifact/SmpGy7mJL8PmKh7GqivdyE (id d0b653aa-7795-4f40-a063-8b8afb279e65) — updated 2 Nov to **v3.3.4** (dashboard layouts, "Timing row" subsection, Layout / Show timing estimates in the settings table, v3.3.3 defaults), with the sections "Test results (2 Nov 2026)" (timeframes, daily grade filter, gold) and "Daily swing routine" (grades A and B since 3 Nov; rules, the twice-daily schedule 08:12 + 17:15 MYT, evening report, the SZones Brief dashboard, Claude's review, TradingView settings to mirror it; schedule and dashboard added 2 Nov evening). Daily loss limit confirmed by tIn on 2 Nov: 2 consecutive losses or −3R, no weekly cap.
 
 ---
 

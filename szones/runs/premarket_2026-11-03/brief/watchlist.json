@@ -48,19 +48,19 @@
   "reason": "BOS + discount + FVG, the best-tested mix; 0.2 ATR above Z1. Volatile (ATR 4.5%), 5.03 SSL just above the stop. Slightly above base."
  },
  {
-  "ticker": "GREATEC",
+  "ticker": "INARI",
   "event": "WATCH",
-  "grade": "A",
-  "why": "BOS P/D",
-  "close": 2.56,
-  "dist_z1_atr": -0.134,
-  "trigger_close": 2.58,
-  "max_close": 2.61,
-  "sl": 2.42,
-  "tp1": 2.67,
+  "grade": "B",
+  "why": "BOS P/D barrier",
+  "close": 2.46,
+  "dist_z1_atr": -0.93,
+  "trigger_close": 2.45,
+  "max_close": 2.49,
+  "sl": 2.27,
+  "tp1": 2.55,
   "net_tp1_r": 0.522,
-  "call": "TAKE",
-  "p_tp1": 0.47,
-  "reason": "Inside Z1 with BOS + discount. But 3.3 ATR off the 2.84 high, back under the 2.78 MSB, and 2.46 SSL sits just above the stop. Base rate."
+  "call": "WAIT",
+  "p_tp1": 0.5,
+  "reason": "BOS + discount, deep pullback (-0.93 ATR) at Z3. TP1 2.55 sits inside Z1 overhead (the barrier). ATR 3.9%. Below the A+B base rate of 55%."
  }
 ]

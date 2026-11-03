@@ -1,10 +1,7 @@
 [
- {"ticker": "GREATEC", "event": "WATCH", "call": "TAKE", "p_tp1": 0.47, "next_move": "up", "horizon_bars": 5, "key_level": 2.55, "invalidation": 2.42,
-  "reason": "Inside Z1 with BOS + discount. But 3.3 ATR off the 2.84 high, back under the 2.78 MSB, and 2.46 SSL sits just above the stop. Base rate."},
- {"ticker": "PENTA", "event": "WATCH", "call": "TAKE", "p_tp1": 0.50, "next_move": "down", "horizon_bars": 5, "key_level": 5.42, "invalidation": 4.98,
-  "reason": "BOS + discount + FVG, the best-tested mix; 0.2 ATR above Z1. Volatile (ATR 4.5%), 5.03 SSL just above the stop. Slightly above base."},
- {"ticker": "VITROX", "event": "WATCH", "call": "WAIT", "p_tp1": 0.45, "next_move": "down", "horizon_bars": 8, "key_level": 10.23, "invalidation": 9.54,
-  "reason": "BOS + FVG but in premium and 0.67 ATR above Z1; needs a deeper pullback before a signal can form."},
- {"ticker": "TM", "event": "WATCH", "call": "WAIT", "p_tp1": 0.47, "next_move": "down", "horizon_bars": 8, "key_level": 7.85, "invalidation": 7.55,
-  "reason": "BOS, premium, 0.79 ATR above Z1. Trigger 7.82-7.88 sits on the 7.85 MSB retest, a plus, but it needs the pullback first."}
+ {"ticker": "GREATEC", "event": "WATCH", "call": "TAKE", "p_tp1": 0.47, "next_move": "up", "horizon_bars": 5, "key_level": 2.55, "invalidation": 2.42, "reason": "Inside Z1 with BOS + discount. But 3.3 ATR off the 2.84 high, back under the 2.78 MSB, and 2.46 SSL sits just above the stop. Base rate."},
+ {"ticker": "PENTA", "event": "WATCH", "call": "TAKE", "p_tp1": 0.5, "next_move": "down", "horizon_bars": 5, "key_level": 5.42, "invalidation": 4.98, "reason": "BOS + discount + FVG, the best-tested mix; 0.2 ATR above Z1. Volatile (ATR 4.5%), 5.03 SSL just above the stop. Slightly above base."},
+ {"ticker": "VITROX", "event": "WATCH", "call": "WAIT", "p_tp1": 0.45, "next_move": "down", "horizon_bars": 8, "key_level": 10.23, "invalidation": 9.54, "reason": "BOS + FVG but in premium and 0.67 ATR above Z1; needs a deeper pullback before a signal can form."},
+ {"ticker": "TM", "event": "WATCH", "call": "WAIT", "p_tp1": 0.47, "next_move": "down", "horizon_bars": 8, "key_level": 7.85, "invalidation": 7.55, "reason": "BOS, premium, 0.79 ATR above Z1. Trigger 7.82-7.88 sits on the 7.85 MSB retest, a plus, but it needs the pullback first."},
+ {"ticker": "INARI", "event": "WATCH", "call": "WAIT", "p_tp1": 0.5, "next_move": "up", "horizon_bars": 5, "key_level": 2.45, "invalidation": 2.27, "reason": "BOS + discount, deep pullback (-0.93 ATR) at Z3. TP1 2.55 sits inside Z1 overhead (the barrier). ATR 3.9%. Below the A+B base rate of 55%.", "added": "2026-11-03 08:27 MYT, pre-open (grade B added to the record)"}
 ]

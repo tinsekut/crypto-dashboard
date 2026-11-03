@@ -2,25 +2,29 @@
  "edition": "Pre-open",
  "session": "2026-11-02",
  "for_open": "2026-11-03",
- "run_time": "2026-11-03 08:13 MYT",
- "min_grade": "A",
+ "run_time": "2026-11-03 08:26 MYT",
+ "min_grade": "B",
  "signals_next_open": 0,
  "watch": 4,
- "open_positions": 4,
+ "open_positions": 5,
  "position_cap": 3,
  "closed_on_session": 0,
  "closed_on_session_r": 0,
  "forward_closed": 0,
  "forward_total_r": 0,
  "go_live": "2026-11-03",
- "replay_12m_trades": 26,
- "replay_12m_avg_r": -0.133,
+ "replay_12m_trades": 62,
+ "replay_12m_avg_r": -0.029,
  "data_source": "yahoo",
  "counters_with_data": 57,
  "counters_total": 57,
  "stale": [],
  "changes": {
-  "added": [],
-  "dropped": []
+  "added": [
+   "INARI WATCH"
+  ],
+  "dropped": [
+   "GREATEC WATCH"
+  ]
  }
 }

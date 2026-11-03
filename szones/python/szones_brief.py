@@ -22,13 +22,16 @@ snaps = json.load(open(os.path.join(run, 'snapshots.json')))
 rf = os.path.join(ROOT, 'reviews', f"{S['session']}.json")
 calls = {(r['ticker'], r['event']): r for r in json.load(open(rf))} if os.path.exists(rf) else {}
 GO = S['go_live']
+# daily backtest 2016-2026 by lowest grade traded: avg R, trades, TP1 rate, label (CLAUDE.md section 3)
+BT = {'A': (-0.024, 212, 0.47, 'A only'), 'B': (0.038, 569, 0.55, 'A and B'), 'C': (0.003, 938, 0.55, 'A, B and C')}
 
 summary = [dict(
     edition=S['edition'], date=S['session'], for_open=S['for_open'] or 'next open', run_time=S['run_time'],
     signals_next_open=S['signals_next_open'], open_positions=S['open_positions'], position_cap=S['position_cap'],
     closed_today=S['closed_on_session'], forward_closed=S['forward_closed'], forward_total_r=S['forward_total_r'],
     replay_12m_trades=S['replay_12m_trades'], replay_12m_avg_r=S['replay_12m_avg_r'],
-    backtest_avg_r=-0.024, backtest_trades=212, base_tp1_rate=0.47,          # CLAUDE.md section 6 base rate
+    grades=BT[S['min_grade']][3], backtest_avg_r=BT[S['min_grade']][0], backtest_trades=BT[S['min_grade']][1],
+    base_tp1_rate=BT[S['min_grade']][2],
     data_source={'yahoo': 'Yahoo', 'eodhd': 'EODHD', 'tradingview': 'TradingView'}.get(S['data_source'], S['data_source']),
     counters_with_data=S['counters_with_data'], counters_total=S['counters_total'],
     stale=len(S['stale']), reviewed=sum(1 for s in snaps if (s['ticker'], s['event']) in calls))]

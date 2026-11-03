@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """SZones daily swing routine for Shariah-compliant Bursa counters (paper record since 2 Nov 2026).
 
-Same settings as the 2016-2026 daily backtest (CLAUDE.md section 3), grade A only by default: daily chart, weekly bias,
+Same settings as the 2016-2026 daily backtest (CLAUDE.md section 3), grades A and B by default (A only on 2 Nov): daily chart, weekly bias,
 Bursa ticks, chase guard 0.5 ATR, net TP1 >= 0.25R, TP1 1.0 / TP2 2.0 ATR (or BSL within 6 ATR),
 SL 1.8 ATR, runner after TP2, entry at the NEXT day's open after a signal close, gap-aware stops,
 0.25% round-trip cost, long only. Backtest all grades: +0.003R per trade, 43% win, TP1 55%, median hold
-13 days; grade A only: -0.024R (t -0.30), 38% win, TP1 47%, 212 trades in 10.8 years.
+13 days; grades A and B: +0.038R (t 0.85), 45% win, TP1 55%, 569 trades; A only: -0.024R, 212 trades.
 
 Usage (after 17:00 MYT, evening):
   python3 szones_swing.py --date 2026-11-02 --workdir ../runs/swing_2026-11-02
@@ -33,8 +33,8 @@ ap.add_argument('--date', required=True)
 ap.add_argument('--workdir', default=None)
 ap.add_argument('--shariah', default=os.path.join(HERE, '..', 'data', 'shariah_sc_list_2026-05-29.json'))
 ap.add_argument('--min-adv', type=float, default=10e6, help='min 20-day avg turnover (RM)')
-ap.add_argument('--min-grade', default='A', choices=['A', 'B', 'C'],
-                help='lowest grade traded (tIn chose A only on 2 Nov 2026; backtest A only: -0.024R, t -0.30)')
+ap.add_argument('--min-grade', default='B', choices=['A', 'B', 'C'],
+                help='lowest grade traded (tIn: A only on 2 Nov 2026, A and B from 3 Nov; backtest A+B: +0.038R, t 0.85)')
 ap.add_argument('--premarket', action='store_true', help='pre-open check before the next open (see above)')
 a = ap.parse_args()
 D = dt.date.fromisoformat(a.date)
