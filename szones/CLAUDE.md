@@ -35,7 +35,7 @@ A Pine Script v6 TradingView indicator: trend-pullback zones (4 ATR bands off a 
 | v3.3.3 | Defaults only: daily swing, grade A only (long only, Bursa ticks, 0.25% cost, HTF W, TP1 1.0 / TP2 2.0, minimum grade A). Logic identical to v3.3.2. Use on a daily chart |
 | **v3.3.4 (current)** | Dashboard: Compact (default) / Full layout; new Timing row — next signal check, entry at next open, typical TP1/TP2/exit date ranges (25th–75th percentile) from this chart's 5+ closed trades, else daily grade A backtest (TP1 2 bars [1–5] 47% reach, TP2 13 [6–20] 25%, exit 7 [3–23]). Weekends skipped, holidays not. Signal logic unchanged |
 
-Current script: `pine/SZones_v3_3_4.pine` (v3.3.2 and v3.3.3 kept for reference). Its default Minimum grade is still "A only": since 3 Nov tIn sets it to "A and B" in the indicator settings to match the paper record. Not compile-checked here (no Pine compiler in the container); tIn compiles on TradingView.
+Current script: `pine/SZones_v3_3_4.pine` (v3.3.2 and v3.3.3 kept for reference). Its default Minimum grade is still "A only": since 3 Nov tIn sets "Minimum signal grade" to "B or better" in the indicator settings to match the paper record. Not compile-checked here (no Pine compiler in the container); tIn compiles on TradingView.
 
 ### Bursa intraday preset (what it forces)
 
