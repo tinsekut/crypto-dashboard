@@ -1,0 +1,25 @@
+[
+ {
+  "edition": "Evening",
+  "date": "2026-11-04",
+  "for_open": "next open",
+  "run_time": "2026-11-04 17:16 MYT",
+  "signals_next_open": 0,
+  "open_positions": 5,
+  "position_cap": 3,
+  "closed_today": 0,
+  "forward_closed": 0,
+  "forward_total_r": 0,
+  "replay_12m_trades": 59,
+  "replay_12m_avg_r": -0.028,
+  "grades": "A and B",
+  "backtest_avg_r": 0.038,
+  "backtest_trades": 569,
+  "base_tp1_rate": 0.55,
+  "data_source": "Yahoo",
+  "counters_with_data": 57,
+  "counters_total": 57,
+  "stale": 0,
+  "reviewed": 2
+ }
+]

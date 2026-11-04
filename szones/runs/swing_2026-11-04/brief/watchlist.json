@@ -1,0 +1,34 @@
+[
+ {
+  "ticker": "TM",
+  "event": "WATCH",
+  "grade": "A",
+  "why": "BOS P/D",
+  "close": 7.96,
+  "dist_z1_atr": 0.911,
+  "trigger_close": 7.82,
+  "max_close": 7.89,
+  "sl": 7.53,
+  "tp1": 7.98,
+  "net_tp1_r": 0.484,
+  "call": "WAIT",
+  "p_tp1": 0.5,
+  "reason": "BOS but premium, 0.91 ATR above Z1; needs a pullback to the 7.85 MSB. 7.53 SSL sits at the 7.53 stop, so a sweep would stop it out. Below base."
+ },
+ {
+  "ticker": "PENTA",
+  "event": "WATCH",
+  "grade": "A",
+  "why": "BOS P/D FVG",
+  "close": 5.58,
+  "dist_z1_atr": 0.674,
+  "trigger_close": 5.41,
+  "max_close": 5.53,
+  "sl": 4.94,
+  "tp1": 5.68,
+  "net_tp1_r": 0.546,
+  "call": "WAIT",
+  "p_tp1": 0.52,
+  "reason": "Bounced above the range (5.58) and out of discount; needs a 0.67 ATR pullback to 5.41-5.53. BOS + FVG still intact. Volatile (ATR 4.7%). Near base."
+ }
+]

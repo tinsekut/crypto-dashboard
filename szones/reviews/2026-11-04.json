@@ -1,0 +1,4 @@
+[
+ {"ticker": "PENTA", "event": "WATCH", "call": "WAIT", "p_tp1": 0.52, "next_move": "down", "horizon_bars": 8, "key_level": 5.41, "invalidation": 4.94, "reason": "Bounced above the range (5.58) and out of discount; needs a 0.67 ATR pullback to 5.41-5.53. BOS + FVG still intact. Volatile (ATR 4.7%). Near base."},
+ {"ticker": "TM", "event": "WATCH", "call": "WAIT", "p_tp1": 0.5, "next_move": "down", "horizon_bars": 8, "key_level": 7.85, "invalidation": 7.53, "reason": "BOS but premium, 0.91 ATR above Z1; needs a pullback to the 7.85 MSB. 7.53 SSL sits at the 7.53 stop, so a sweep would stop it out. Below base."}
+]
