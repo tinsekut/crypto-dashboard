@@ -1,0 +1,132 @@
+[
+ {
+  "code": "4863",
+  "ticker": "TM",
+  "tf": "D",
+  "time": "2026-11-04",
+  "price": 7.96,
+  "dir": 1,
+  "trend": {
+   "bias": 1,
+   "htf_bull": true,
+   "struct": 1,
+   "discount": false,
+   "squeeze": false
+  },
+  "zones": {
+   "next": 1,
+   "dist_z1_atr": 0.911,
+   "z1": [
+    7.7782,
+    7.8173
+   ],
+   "z2": [
+    7.6999,
+    7.739
+   ],
+   "z3": [
+    7.606,
+    7.6451
+   ],
+   "z4": [
+    7.4807,
+    7.5198
+   ]
+  },
+  "smc": {
+   "maj": 1,
+   "msb": 7.85,
+   "idm": 8.05,
+   "leg_ext": 8.18,
+   "ext": 8.538441,
+   "bsl": 8.18,
+   "ssl": 7.53
+  },
+  "atr": 0.156577,
+  "atr_pct": 1.967,
+  "adv_rm": 26395730,
+  "stats": {
+   "n": 5,
+   "avg_r": -0.183
+  },
+  "cost_pct": 0.25,
+  "long_only": true,
+  "event": "WATCH",
+  "id": "TM-2026-11-04",
+  "grade": "A",
+  "reasons": "BOS P/D",
+  "plan": {
+   "trigger_close": 7.82,
+   "max_close": 7.89,
+   "entry": "open after the signal close",
+   "sl": 7.53,
+   "tp1": 7.98,
+   "net_tp1_r": 0.484
+  }
+ },
+ {
+  "code": "7160",
+  "ticker": "PENTA",
+  "tf": "D",
+  "time": "2026-11-04",
+  "price": 5.58,
+  "dir": 1,
+  "trend": {
+   "bias": 1,
+   "htf_bull": true,
+   "struct": 1,
+   "discount": false,
+   "squeeze": false
+  },
+  "zones": {
+   "next": 1,
+   "dist_z1_atr": 0.674,
+   "z1": [
+    5.3394,
+    5.4045
+   ],
+   "z2": [
+    5.2092,
+    5.2743
+   ],
+   "z3": [
+    5.0529,
+    5.118
+   ],
+   "z4": [
+    4.8446,
+    4.9097
+   ]
+  },
+  "smc": {
+   "maj": 1,
+   "msb": 5.84,
+   "idm": 5.98,
+   "leg_ext": 6.16,
+   "ext": 6.85834,
+   "bsl": 6.16,
+   "ssl": 5.2
+  },
+  "atr": 0.260434,
+  "atr_pct": 4.667,
+  "adv_rm": 21175970,
+  "stats": {
+   "n": 4,
+   "avg_r": 0.475
+  },
+  "cost_pct": 0.25,
+  "long_only": true,
+  "event": "WATCH",
+  "id": "PENTA-2026-11-04",
+  "grade": "A",
+  "reasons": "BOS P/D FVG",
+  "plan": {
+   "trigger_close": 5.41,
+   "max_close": 5.53,
+   "entry": "open after the signal close",
+   "sl": 4.94,
+   "tp1": 5.68,
+   "net_tp1_r": 0.546
+  }
+ }
+]

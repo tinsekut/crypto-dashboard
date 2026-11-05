@@ -1,0 +1,72 @@
+[
+ {
+  "ticker": "FRONTKN",
+  "since": "2026-09-18",
+  "grade": "B",
+  "entry": 4.9,
+  "stop": 4.69,
+  "tp1": 5.02,
+  "tp2": 5.4,
+  "tp1_hit": true,
+  "tp2_hit": false,
+  "close": 5.01,
+  "open_r": 0.548,
+  "inherited": true
+ },
+ {
+  "ticker": "SIME",
+  "since": "2026-10-15",
+  "grade": "A",
+  "entry": 2.45,
+  "stop": 2.32,
+  "tp1": 2.52,
+  "tp2": 2.68,
+  "tp1_hit": false,
+  "tp2_hit": false,
+  "close": 2.5,
+  "open_r": 0.385,
+  "inherited": true
+ },
+ {
+  "ticker": "GREATEC",
+  "since": "2026-10-15",
+  "grade": "B",
+  "entry": 2.49,
+  "stop": 2.32,
+  "tp1": 2.59,
+  "tp2": 2.93,
+  "tp1_hit": true,
+  "tp2_hit": false,
+  "close": 2.65,
+  "open_r": 0.765,
+  "inherited": true
+ },
+ {
+  "ticker": "KGB",
+  "since": "2026-10-16",
+  "grade": "A",
+  "entry": 8.55,
+  "stop": 8.04,
+  "tp1": 8.84,
+  "tp2": 9.25,
+  "tp1_hit": false,
+  "tp2_hit": false,
+  "close": 8.35,
+  "open_r": -0.392,
+  "inherited": true
+ },
+ {
+  "ticker": "GAMUDA",
+  "since": "2026-10-22",
+  "grade": "A",
+  "entry": 4.83,
+  "stop": 4.6,
+  "tp1": 4.96,
+  "tp2": 5.28,
+  "tp1_hit": true,
+  "tp2_hit": false,
+  "close": 4.94,
+  "open_r": 0.522,
+  "inherited": true
+ }
+]
