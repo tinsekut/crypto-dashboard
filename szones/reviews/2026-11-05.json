@@ -1,0 +1,7 @@
+[
+ {"ticker": "MISC", "event": "WATCH", "call": "TAKE", "p_tp1": 0.56, "next_move": "up", "horizon_bars": 5, "key_level": 8.06, "invalidation": 7.54, "reason": "BOS + discount, 0.2 ATR above Z1 and already inside the buy range; TP1 8.35 is clear of the 8.70 MSB. 7.49 SSL sits just under the stop. Slightly above base."},
+ {"ticker": "PCHEM", "event": "WATCH", "call": "WAIT", "p_tp1": 0.52, "next_move": "up", "horizon_bars": 5, "key_level": 4.27, "invalidation": 3.93, "reason": "BOS + discount, deep at Z3 (-0.78 ATR) and inside the range, but TP1 4.46 sits at the top of Z1 overhead. ATR 4.3%. Near base."},
+ {"ticker": "SFPTECH", "event": "WATCH", "call": "WAIT", "p_tp1": 0.53, "next_move": "up", "horizon_bars": 5, "key_level": 2.76, "invalidation": 2.56, "reason": "BOS only, premium; needs a green close back above Z1 at 2.76-2.80. 2.67 SSL between close and stop could be swept first. Near base."},
+ {"ticker": "VITROX", "event": "WATCH", "call": "WAIT", "p_tp1": 0.5, "next_move": "down", "horizon_bars": 8, "key_level": 10.26, "invalidation": 9.5, "reason": "BOS + FVG but premium, 0.82 ATR above Z1; needs a pullback to 10.26-10.46 first. Weak history on this counter (-0.40R over 5). Below base."},
+ {"ticker": "UWC", "event": "WATCH", "call": "SKIP", "p_tp1": 0.44, "next_move": "down", "horizon_bars": 5, "key_level": 6.51, "invalidation": 5.9, "reason": "Structure down (no BOS), still falling: 1.46 ATR below Z1, now at Z4. TP1 6.85 sits under the 6.98 MSB. Below base."}
+]

@@ -1,0 +1,23 @@
+{
+ "edition": "Evening",
+ "session": "2026-11-05",
+ "for_open": null,
+ "run_time": "2026-11-05 17:16 MYT",
+ "min_grade": "B",
+ "signals_next_open": 0,
+ "watch": 5,
+ "open_positions": 4,
+ "position_cap": 3,
+ "closed_on_session": 1,
+ "closed_on_session_r": -1.042,
+ "forward_closed": 0,
+ "forward_total_r": 0,
+ "go_live": "2026-11-03",
+ "replay_12m_trades": 60,
+ "replay_12m_avg_r": -0.045,
+ "data_source": "yahoo",
+ "counters_with_data": 57,
+ "counters_total": 57,
+ "stale": [],
+ "changes": null
+}
