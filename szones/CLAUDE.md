@@ -104,7 +104,7 @@ Median hold 13 days; +0.05% net per trade (+0.30% gross). By year: 2017 +26R car
 | A only (2 Nov setting) | 212 | −0.024 | −0.30 | 38% | 47% | −0.09 / +0.04 |
 | A only, max 3 open | 189 | −0.003 | −0.03 | 39% | 47% | −0.09 / +0.08 |
 
-None is significant. Replaying the last 12 months with A and B through the live pipeline gave −0.03R over 62 trades (3 Nov). Earlier, replaying the last 12 months through the live pipeline (Yahoo, 5-year history) gave A only −0.13R over 26 trades versus +0.05R over 29 on TradingView's 20-year series — the difference is within noise (standard error ≈ 0.2R) but shows the data-source sensitivity.
+None is significant. Replaying the last 12 months with A and B through the live pipeline gave −0.03R over 62 trades (3 Nov). **Data warning (5 Nov):** that replay includes CAPITALA at −5.57R (entry 0.915, exit 0.277 on 24 Nov 2025): a one-day gap far past the stop, almost certainly a corporate action Yahoo does not adjust. Without it the 12-month replay is +0.048R over 59 trades (5 Nov). The dashboard flags any closed trade below −2R as suspect; the engine and figures are unchanged. Earlier, replaying the last 12 months through the live pipeline (Yahoo, 5-year history) gave A only −0.13R over 26 trades versus +0.05R over 29 on TradingView's 20-year series — the difference is within noise (standard error ≈ 0.2R) but shows the data-source sensitivity.
 
 **Gold test (2 Nov 2026, OANDA:XAUUSD via TradingView, indicator defaults TP 0.6/1.2 ATR + chase 0.5 + net TP1 ≥ 0.25R, 0.02% cost, long only, next-bar fills, gap-aware stops, no Bursa session rules):** **no significant edge; intraday negative; the positive higher timeframes trail plain holding by a wide margin.**
 
@@ -214,11 +214,13 @@ A daily chart cannot produce new signals overnight, so this run re-checks last e
 3. Report briefly: orders for today's open (SIGNALs; real stop/targets are re-based on the actual open), changes against the evening plan, open positions with their stops, data source and stale counters. Indicator readouts, not advice. If T is a Bursa holiday the plan simply carries to the next session; say so if you know it.
 4. Commit `runs/premarket_T/{snapshots,positions,summary,sources}.json`, `runs/premarket_T/brief/*.json` and any review file changed, push.
 
-**Brief refresh (both routines).** Dashboard "SZones Brief": https://claude.ai/artifact/Kt4NUYMt5fGiE2U3j1v1cj (Dashboard artifact type; the page reads three data files from its asset store).
-1. `python3 szones_brief.py --run <run folder>` writes `<run>/brief/{run_summary,positions,watchlist}.json` (Claude's calls merged from `reviews/S.json`).
-2. Upload each of the three files as an asset to the dashboard, one call per file (Artifact publish with `url` = the dashboard, `asset: true`, `file_path`). Note each new `/_blob/<id>` url.
-3. ArtifactData `get` `datasets/run_summary`, `datasets/positions`, `datasets/watchlist` (versions and old source urls), then one `batch` of `update`s pinned with `if_version`: `source` = `{kind: "file", url: <new blob url>, name: "<file>.json"}`, `updated` = `{at: <now, UTC ISO>, by: "Claude, SZones <edition> routine"}`.
-4. Delete the three replaced assets (Artifact `delete`, `url` = the dashboard, `path` = the old blob id). Never touch `datasets/timeframe_test`, `datasets/grade_test` (fixed backtests) or `files/index.html` (the page) in a routine.
+**Brief refresh (both routines).** Dashboard "SZones Brief": https://claude.ai/artifact/Kt4NUYMt5fGiE2U3j1v1cj (Dashboard artifact type; the page reads five data files from its asset store; page source kept in `dashboard/index.html`).
+1. `python3 szones_brief.py --run <run folder>` writes `<run>/brief/{run_summary,positions,watchlist,closed_trades,calls}.json` (Claude's calls merged from `reviews/S.json`; closed trades from `runs/swing_S/trades.json`, entries in the last 12 months, with a running total; calls from `szones_scorecard.py --json`).
+2. Upload each of the five files as an asset to the dashboard, one call per file (Artifact publish with `url` = the dashboard, `asset: true`, `file_path`). Note each new `/_blob/<id>` url.
+3. ArtifactData `list` `datasets` (versions and old source urls), then one `batch` of `update`s to `datasets/run_summary`, `positions`, `watchlist`, `closed_trades`, `calls`, each pinned with `if_version`: `source` = `{kind: "file", url: <new blob url>, name: "<file>.json"}`, `updated` = `{at: <now, UTC ISO>, by: "Claude, SZones <edition> routine"}`.
+4. Delete the five replaced assets (Artifact `delete`, `url` = the dashboard, `path` = the old blob id). Never touch `datasets/timeframe_test`, `datasets/grade_test` (fixed backtests) or `files/index.html` (the page) in a routine.
+
+Dashboard sections (added 5 Nov at tIn's request for more visuals): headline tiles; open positions ladder in R; watch list "distance to buy range" chart (% from close, buy-close range, stop, TP1) plus the levels table with Claude's calls; track record (running total of closed trades over 12 months with the forward-record start marked, and Claude's calls toward the 50 needed); evidence bars (timeframe, grade filter).
 
 The 15m routine (`szones_daily.py`) still works but is no longer scheduled.
 
@@ -269,6 +271,7 @@ The 15m routine (`szones_daily.py`) still works but is no longer scheduled.
 | `python/szones_daily.py` | Daily fetch + evaluate + watchlist; writes `snapshots.json` and `trades.json` |
 | `python/szones_swing.py` | Daily swing routine (scheduled): signals for the next open, positions, closed trades, watch list |
 | `python/szones_brief.py` | Builds the SZones Brief dashboard's data files from a run (section 6, Brief refresh) |
-| `python/szones_scorecard.py` | Scores Claude's reviews against the trades that follow (multi-day aware) |
+| `python/szones_scorecard.py` | Scores Claude's reviews against the trades that follow (multi-day aware); `--json` gives counts for the dashboard |
+| `dashboard/index.html` | Source of the SZones Brief dashboard page (stored in the artifact as `files/index.html`) |
 | `runs/swing_D/`, `runs/premarket_T/`, `reviews/D.json` | Evening and pre-open daily swing outputs (with `brief/` files) and Claude's calls (section 6); `runs/run_D/` = old 15m runs |
 | `data/shariah_sc_list_2026-05-29.json` | Shariah status per counter (SC list effective 29 May 2026) |

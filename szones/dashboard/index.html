@@ -1,0 +1,626 @@
+<meta name="dash-one-writer">
+<style>
+  .sz { max-width: 76rem; margin-inline: auto; display: flex; flex-direction: column; gap: var(--cds-gap-xl); font-family: var(--font-anthropic-sans); color: var(--color-fg); }
+  .sz-head { display: flex; flex-direction: column; gap: var(--cds-gap-sm); }
+  .sz-title { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; text-wrap: balance; }
+  .sz-byline { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); margin: 0; letter-spacing: .02em; }
+  .sz-takeaway { font-size: var(--cds-font-size-heading); margin: 0; max-width: 62ch; line-height: 1.45; }
+  .sz .sz-takeaway b, .sz .sz-byline b, .sz .sz-note b { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .sz-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: var(--cds-gap-md); }
+  .sz-tile { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-md) var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-xs); min-width: 0; }
+  .sz-tile-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 0; }
+  .sz-tile-value { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); font-variant-numeric: tabular-nums; margin: 0; line-height: 1.1; }
+  .sz-tile-note { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 0; }
+  .sz-tile.is-warn .sz-tile-value { color: var(--color-warn); }
+  .sz-tile.is-warn .sz-flag { display: inline; }
+  .sz-flag { display: none; color: var(--color-warn); font-weight: 600; }
+  .sz-pos .sz-tile-value.is-up { color: var(--color-ok); }
+  .sz-pos .sz-tile-value.is-down { color: var(--color-bad); }
+  .sz-section { display: flex; flex-direction: column; gap: var(--cds-gap-md); }
+  .sz-h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; }
+  .sz-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-sm); min-width: 0; }
+  .sz-card-title { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; }
+  .sz-note { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 0; max-width: 70ch; }
+  .sz-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: var(--cds-gap-md); }
+  .sz-chart { position: relative; min-height: 12rem; }
+  .sz-chart svg { display: block; overflow: visible; }
+  .sz-chart-sm { min-height: 8rem; }
+  .sz-sub { font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); margin: var(--cds-gap-sm) 0 0; }
+  .sz-grid-rec { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--cds-gap-md); }
+  @media (max-width: 760px) { .sz-grid-rec { grid-template-columns: minmax(0, 1fr); } }
+  .sz-legend { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm) var(--cds-gap-lg); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 0; padding: 0; list-style: none; }
+  .sz-legend li { display: inline-flex; align-items: center; gap: var(--cds-gap-xs); }
+  .sz-sw { display: inline-block; width: .625rem; height: .625rem; border-radius: 50%; background: var(--cds-chart-muted); }
+  .sz-sw.is-open { background: transparent; border: 2px solid var(--color-fg-muted); }
+  .sz-sw.is-diamond { border-radius: 1px; transform: rotate(45deg); width: .5rem; height: .5rem; background: transparent; border: 2px solid var(--color-fg-muted); }
+  .sz-sw.is-range { border-radius: 2px; width: 1rem; background: transparent; border: 1.5px solid var(--color-fg-muted); }
+  .sz-sw.is-dot-fg { background: var(--color-fg); }
+  .sz-sw.is-stop { border-radius: 1px; width: 3px; height: .75rem; background: var(--cds-chart-status-critical); }
+  .sz-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); white-space: nowrap; font-variant-numeric: tabular-nums; z-index: 2; }
+  .sz-tip-head { color: var(--cds-text-secondary); }
+  .sz-tablewrap { overflow-x: auto; }
+  .sz-table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-body); font-variant-numeric: tabular-nums; }
+  .sz-table th { text-align: left; font-weight: var(--cds-font-weight-medium); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); white-space: nowrap; }
+  .sz-table td { padding: var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); vertical-align: top; }
+  .sz-table .is-num { text-align: right; white-space: nowrap; }
+  .sz-table .is-why { min-width: 16rem; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+  .sz-table .is-tick { font-weight: 600; white-space: nowrap; }
+  .sz-chip { display: inline-block; padding: 1px var(--cds-pad-sm); border-radius: 999px; font-size: var(--cds-font-size-caption); font-weight: 600; letter-spacing: .04em; border: 1px solid var(--color-border-line); }
+  .sz-chip.is-take { color: var(--color-ok); border-color: currentColor; }
+  .sz-chip.is-wait { color: var(--color-fg-muted); }
+  .sz-chip.is-skip { color: var(--color-bad); border-color: currentColor; }
+  .sz-pbar { position: relative; display: inline-block; width: 4.5rem; height: .5rem; margin-left: var(--cds-gap-xs); background: var(--cds-chart-grid); border-radius: 2px; vertical-align: middle; }
+  .sz-pbar-fill { position: absolute; inset: 0 auto 0 0; border-radius: 2px; }
+  .sz-pbar-base { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--color-fg); }
+  .sz-foot { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 0; border-top: 1px solid var(--color-border-line); padding-top: var(--cds-pad-md); }
+  [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+  [data-dash-source-state=empty] { color: transparent; }
+</style>
+
+<div class="sz">
+  <header class="sz-head" id="top">
+    <h1 class="sz-title">SZones Brief</h1>
+    <p class="sz-byline"><b data-draw="val" data-source="run_summary" data-field="edition" data-row="0" class="dash-skeleton">—</b> edition · daily swing paper record · close of <b data-draw="val" data-source="run_summary" data-field="date" data-row="0" data-fmt="date" class="dash-skeleton">—</b> · plan for the open on <b data-draw="val" data-source="run_summary" data-field="for_open" data-row="0" data-fmt="date" class="dash-skeleton">—</b> · run <b data-draw="val" data-source="run_summary" data-field="run_time" data-row="0" class="dash-skeleton">—</b> · data from <b data-draw="val" data-source="run_summary" data-field="data_source" data-row="0" class="dash-skeleton">—</b> for <b data-draw="val" data-source="run_summary" data-field="counters_with_data" data-row="0" class="dash-skeleton">—</b> of <b data-draw="val" data-source="run_summary" data-field="counters_total" data-row="0" class="dash-skeleton">—</b> Shariah counters · grades <b data-draw="val" data-source="run_summary" data-field="grades" data-row="0" class="dash-skeleton">—</b></p>
+    <p class="sz-takeaway"><b data-draw="val" data-source="run_summary" data-field="signals_next_open" data-row="0" class="dash-skeleton">—</b> signals for the next open. <b data-draw="val" data-source="run_summary" data-field="open_positions" data-row="0" class="dash-skeleton">—</b> positions open, <b data-draw="val" data-source="open_total" data-field="open_r_total" data-row="0" data-fmt="r" class="dash-skeleton">—</b> combined. Claude would take <b data-draw="val" data-source="watch_calls" data-field="take" data-row="0" class="dash-skeleton">—</b> of the <b data-draw="val" data-source="watch_calls" data-field="watch" data-row="0" class="dash-skeleton">—</b> watch-list setups if they trigger.</p>
+  </header>
+
+  <section class="sz-tiles" aria-label="Headline figures">
+    <div class="sz-tile">
+      <p class="sz-tile-label">Signals for the next open</p>
+      <p class="sz-tile-value" data-draw="val" data-source="run_summary" data-field="signals_next_open" data-row="0">—</p>
+      <p class="sz-tile-note">Grades <b data-draw="val" data-source="run_summary" data-field="grades" data-row="0" class="dash-skeleton">—</b>, fired at the last close</p>
+    </div>
+    <div class="sz-tile sz-cap">
+      <p class="sz-tile-label">Open positions</p>
+      <p class="sz-tile-value" data-draw="val" data-source="run_summary" data-field="open_positions" data-row="0">—</p>
+      <p class="sz-tile-note">Live-trading cap <b data-draw="val" data-source="run_summary" data-field="position_cap" data-row="0">—</b> <span class="sz-flag">· over the cap</span></p>
+    </div>
+    <div class="sz-tile sz-pos">
+      <p class="sz-tile-label">Open profit</p>
+      <p class="sz-tile-value sz-signed" data-draw="val" data-source="open_total" data-field="open_r_total" data-row="0" data-fmt="r">—</p>
+      <p class="sz-tile-note">All open positions, at today's close</p>
+    </div>
+    <div class="sz-tile sz-pos">
+      <p class="sz-tile-label">Forward record</p>
+      <p class="sz-tile-value sz-signed" data-draw="val" data-source="run_summary" data-field="forward_total_r" data-row="0" data-fmt="r">—</p>
+      <p class="sz-tile-note"><b data-draw="val" data-source="run_summary" data-field="forward_closed" data-row="0">—</b> closed trades since entries began on 3 Nov</p>
+    </div>
+    <div class="sz-tile sz-pos">
+      <p class="sz-tile-label">Last 12 months, rules replayed</p>
+      <p class="sz-tile-value sz-signed" data-draw="val" data-source="run_summary" data-field="replay_12m_avg_r" data-row="0" data-fmt="r">—</p>
+      <p class="sz-tile-note">per trade over <b data-draw="val" data-source="run_summary" data-field="replay_12m_trades" data-row="0">—</b> trades · backtest <b data-draw="val" data-source="run_summary" data-field="backtest_avg_r" data-row="0" data-fmt="r3">—</b></p>
+    </div>
+  </section>
+
+  <section class="sz-section" aria-labelledby="pos-h">
+    <div class="sz-card">
+      <h2 class="sz-card-title" id="pos-h">Where each open position sits</h2>
+      <p class="sz-note">Each line runs from the stop (−1R) to TP2, measured in R from the entry. The dot is today's close; the label at the right is open profit, including any half already banked at TP1. Positions opened before 3 Nov don't count toward the forward record.</p>
+      <ul class="sz-legend" aria-label="Legend">
+        <li><span class="sz-sw sz-sw-close"></span>Today's close</li>
+        <li><span class="sz-sw is-stop"></span>Stop</li>
+        <li><span class="sz-sw is-diamond"></span>TP1 (filled once hit)</li>
+        <li><span class="sz-sw is-open"></span>TP2</li>
+      </ul>
+      <div class="sz-chart" id="ladder" data-draw="ladder" data-source="position_ladder"></div>
+    </div>
+  </section>
+
+  <section class="sz-section" aria-labelledby="watch-h">
+    <div class="sz-card">
+      <h2 class="sz-card-title" id="watch-h">Watch list and Claude's calls</h2>
+      <p class="sz-note">Rows marked “buy at open” fired at the last close and are bought at the next open. The rest could signal at the next close. A signal needs a green daily candle that closes inside the buy-close range; the buy is at the following open. The bar shows Claude's chance of reaching TP1; the black tick is the backtest base rate of <b data-draw="val" data-source="run_summary" data-field="base_tp1_rate" data-row="0" data-fmt="pct">—</b>.</p>
+      <h3 class="sz-sub">How far each setup is from its buy range</h3>
+      <p class="sz-note">Measured in % from today's close (the dashed line). The shaded box is the buy-close range: a green daily close inside it is a signal. The red tick is the stop and the diamond TP1. Closest setups are at the top.</p>
+      <ul class="sz-legend" aria-label="Legend">
+        <li><span class="sz-sw is-dot-fg"></span>Today's close</li>
+        <li><span class="sz-sw is-range"></span>Buy-close range</li>
+        <li><span class="sz-sw is-stop"></span>Stop</li>
+        <li><span class="sz-sw is-diamond"></span>TP1</li>
+      </ul>
+      <div class="sz-chart" id="watchrange" data-draw="watchrange" data-source="watchlist"></div>
+      <h3 class="sz-sub">Levels and Claude's reasons</h3>
+      <div class="sz-tablewrap">
+        <table class="sz-table" id="watch" data-source="watchlist" data-row-key="ticker">
+          <thead>
+            <tr>
+              <th data-field="ticker">Counter</th>
+              <th data-field="call">Claude</th>
+              <th data-field="p_tp1">Chance of TP1</th>
+              <th data-field="close" class="is-num">Close</th>
+              <th data-field="dist_z1_atr" class="is-num">ATR above zone</th>
+              <th data-field="trigger_close" class="is-num">Buy close from</th>
+              <th data-field="max_close" class="is-num">to</th>
+              <th data-field="sl" class="is-num">Stop</th>
+              <th data-field="tp1" class="is-num">TP1</th>
+              <th data-field="reason">Why</th>
+            </tr>
+          </thead>
+          <tbody data-draw="watchrows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="sz-section" aria-labelledby="rec-h">
+    <h2 class="sz-h2" id="rec-h">Track record</h2>
+    <div class="sz-grid-rec">
+      <div class="sz-card">
+        <h3 class="sz-card-title">Closed trades, last 12 months</h3>
+        <p class="sz-note">Running total in R of every trade the rules closed, by exit date. Green dots are wins, red are losses. Trades entered from 3 Nov (right of the dashed line) form the forward record; earlier ones are the rules replayed on past data. Hover for each trade.</p>
+        <div class="sz-chart" id="cumr" data-draw="cumr" data-source="closed_trades"></div>
+      </div>
+      <div class="sz-card">
+        <h3 class="sz-card-title">Claude's calls so far</h3>
+        <p class="sz-note">A call is scored once that counter's next trade closes. After 50 scored trades the scorecard shows whether TAKE calls beat the rest; until then the rules decide.</p>
+        <div class="sz-chart sz-chart-sm" id="calls" data-draw="callsbar" data-source="calls"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sz-section" aria-labelledby="ev-h">
+    <h2 class="sz-h2" id="ev-h">Why this is still a paper record</h2>
+    <div class="sz-grid2">
+      <div class="sz-card">
+        <h3 class="sz-card-title">Result per trade by chart timeframe</h3>
+        <p class="sz-note">Bursa, 57 Shariah counters, after the 0.25% round-trip cost. Shorter charts lose more: 5-minute signals were already at <b data-draw="val" data-source="timeframe_test" data-field="gross_r" data-where="chart=5 min" data-fmt="r">—</b> per trade before costs. Daily is the live setting.</p>
+        <div class="sz-chart" data-draw="tfbars" data-source="timeframe_test"></div>
+      </div>
+      <div class="sz-card">
+        <h3 class="sz-card-title">Daily result per trade by grade traded</h3>
+        <p class="sz-note">Daily backtest 2016 to October 2026. None of these differences is statistically reliable. Grades A and B are the paper-record setting since 3 Nov 2026; A only was used before.</p>
+        <div class="sz-chart" data-draw="gradebars" data-source="grade_test"></div>
+      </div>
+    </div>
+  </section>
+
+  <p class="sz-foot">Indicator readouts from the SZones rules, not financial advice. Positions, signals and the trade history come from the latest run on Yahoo daily data; the timeframe and grade figures come from backtests on TradingView data. Every result is net of costs and measured in R, where 1R is the distance from entry to stop.</p>
+</div>
+
+<script>
+  dash.calc('open_total', {
+    inputs: ['positions'],
+    title: 'Open profit, all positions',
+    description: 'Sum of open R across every open position at today’s close.',
+    fn: (positions) => [{ open_r_total: positions.reduce((s, p) => s + Number(p.open_r), 0) }],
+  });
+  dash.calc('watch_calls', {
+    inputs: ['watchlist'],
+    title: 'Watch list calls',
+    description: 'How many watch-list setups there are and how many Claude marked TAKE.',
+    fn: (watchlist) => [{ watch: watchlist.length, take: watchlist.filter((w) => w.call === 'TAKE').length }],
+  });
+  dash.calc('position_ladder', {
+    inputs: ['positions'],
+    title: 'Open positions in R',
+    description: 'Stop, TP1, TP2 and today’s close as R from entry, where 1R is entry minus stop.',
+    fn: (positions) => positions.map((p) => {
+      const risk = p.entry - p.stop;
+      const r = (x) => (risk > 0 ? (x - p.entry) / risk : null);
+      return { ticker: p.ticker, since: p.since, entry: p.entry, stop: p.stop, tp1: p.tp1, tp2: p.tp2, close: p.close,
+        stop_r: r(p.stop), tp1_r: r(p.tp1), tp2_r: r(p.tp2), close_r: r(p.close), open_r: p.open_r, tp1_hit: p.tp1_hit, tp2_hit: p.tp2_hit };
+    }),
+  });
+
+  window.szFmt = (kind, v) => {
+    if (v === null || v === undefined || v === '') return '—';
+    if (kind === 'r') { const n = Number(v); return (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n).toFixed(2) + 'R'; }
+    if (kind === 'r3') { const n = Number(v); return (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n).toFixed(3) + 'R'; }
+    if (kind === 'pct') return d3.format('.0%')(Number(v));
+    if (kind === 'date') return /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? d3.utcFormat('%a %-d %b %Y')(new Date(v + 'T00:00:00Z')) : String(v);
+    if (typeof v === 'number') return d3.format(',')(v);
+    return String(v);
+  };
+
+  dash.draw('val', (el) => {
+    const d = dash.data(el.dataset.source);
+    if (d.status !== 'ok') { el.textContent = '—'; if (d.status !== 'loading') el.classList.remove('dash-skeleton'); return; }
+    el.classList.remove('dash-skeleton');
+    let row;
+    if (el.dataset.where) {
+      const [k, val] = el.dataset.where.split('=').map(decodeURIComponent);
+      row = d.data.find((x) => String(x[k]) === val);
+    } else row = d.data[Number(el.dataset.row || 0)];
+    el.textContent = row ? window.szFmt(el.dataset.fmt, row[el.dataset.field]) : '—';
+  });
+
+  dash.onData(() => {
+    const s = dash.data('run_summary');
+    const over = s.status === 'ok' && s.data[0] && Number(s.data[0].open_positions) > Number(s.data[0].position_cap);
+    document.querySelectorAll('.sz-cap').forEach((t) => t.classList.toggle('is-warn', !!over));
+    const sign = (id, field) => {
+      const d = dash.data(id);
+      return d.status === 'ok' && d.data[0] ? Math.sign(Number(d.data[0][field])) : 0;
+    };
+    document.querySelectorAll('.sz-signed').forEach((el) => {
+      const n = sign(el.dataset.source, el.dataset.field);
+      el.classList.toggle('is-up', n > 0);
+      el.classList.toggle('is-down', n < 0);
+    });
+    document.querySelectorAll('.sz-sw-close').forEach((sw) => { sw.style.background = dash.colors[0]; });
+    document.querySelectorAll('.sz-sw.is-range').forEach((sw) => {
+      sw.style.borderColor = dash.colors[0];
+      sw.style.background = `color-mix(in srgb, ${dash.colors[0]} 30%, transparent)`;
+    });
+  });
+</script>
+
+<script>
+  // Position ladder: one row per open position, x in R from entry.
+  dash.draw('ladder', (el) => {
+    const d = dash.data('position_ladder');
+    el.replaceChildren();
+    if (d.status !== 'ok') {
+      if (d.status === 'error') {
+        const p = document.createElement('p');
+        p.className = 'sz-note';
+        p.textContent = 'Failed to load';
+        el.append(p);
+      } else el.textContent = '—';
+      return;
+    }
+    const rows = d.data.filter((r) => r.close_r !== null).slice().sort((a, b) => b.open_r - a.open_r);
+    const W = el.clientWidth || 600, rowH = 46, top = 8, bottom = 28;
+    const H = top + rows.length * rowH + bottom;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
+      .attr('aria-label', 'Open positions from stop to TP2 in R, with today’s close');
+    const measure = (texts, cls) => {
+      const g = svg.append('g');
+      const w = d3.max(texts, (t) => g.append('text').attr('class', cls).attr('font-size', 13).text(t).node().getComputedTextLength()) || 0;
+      g.remove();
+      return w;
+    };
+    const left = measure(rows.map((r) => r.ticker)) + 16;
+    const right = measure(rows.map((r) => window.szFmt('r', r.open_r))) + 16;
+    const lo = Math.min(-1, d3.min(rows, (r) => r.close_r)) - 0.15;
+    const hi = Math.max(d3.max(rows, (r) => r.tp2_r), d3.max(rows, (r) => r.close_r)) + 0.15;
+    const x = d3.scaleLinear([lo, hi], [left, W - right]);
+    const ticks = d3.range(Math.ceil(lo), Math.floor(hi) + 1);
+    const grid = svg.append('g');
+    grid.selectAll('line').data(ticks).join('line')
+      .attr('x1', (t) => x(t)).attr('x2', (t) => x(t)).attr('y1', top).attr('y2', H - bottom)
+      .attr('stroke', (t) => (t === 0 ? 'var(--cds-chart-reference)' : 'var(--cds-chart-grid)'))
+      .attr('stroke-dasharray', (t) => (t === 0 ? '4 3' : null)).attr('stroke-width', 1);
+    grid.selectAll('text').data(ticks).join('text')
+      .attr('x', (t) => x(t)).attr('y', H - 8).attr('text-anchor', 'middle').attr('font-size', 11)
+      .attr('fill', 'var(--color-fg-muted)')
+      .text((t) => (t === 0 ? 'Entry' : (t > 0 ? '+' : '−') + Math.abs(t) + 'R'));
+    const up = dash.colors[0];
+    const g = svg.append('g').selectAll('g').data(rows).join('g')
+      .attr('transform', (r, i) => `translate(0, ${top + i * rowH + rowH / 2})`);
+    g.append('text').attr('x', left - 12).attr('y', 4).attr('text-anchor', 'end').attr('font-size', 13)
+      .attr('font-weight', 600).attr('fill', 'var(--color-fg)').text((r) => r.ticker);
+    g.append('line').attr('x1', (r) => x(r.stop_r)).attr('x2', (r) => x(r.tp2_r)).attr('stroke', 'var(--cds-chart-muted)')
+      .attr('stroke-width', 2).attr('stroke-linecap', 'round');
+    g.append('rect').attr('x', (r) => x(Math.min(0, r.close_r))).attr('width', (r) => Math.abs(x(r.close_r) - x(0)))
+      .attr('y', -4).attr('height', 8).attr('rx', 2)
+      .attr('fill', (r) => (r.close_r >= 0 ? up : 'var(--cds-chart-status-critical)')).attr('fill-opacity', 0.35);
+    g.append('rect').attr('x', (r) => x(r.stop_r) - 1.5).attr('y', -9).attr('width', 3).attr('height', 18).attr('rx', 1)
+      .attr('fill', 'var(--cds-chart-status-critical)');
+    g.append('rect').attr('x', (r) => x(r.tp1_r) - 5).attr('y', -5).attr('width', 10).attr('height', 10).attr('rx', 1)
+      .attr('transform', (r) => `rotate(45 ${x(r.tp1_r)} 0)`)
+      .attr('fill', (r) => (r.tp1_hit ? 'var(--color-fg)' : 'var(--color-panel)')).attr('stroke', 'var(--color-fg)').attr('stroke-width', 1.5);
+    g.append('circle').attr('cx', (r) => x(r.tp2_r)).attr('r', 5.5)
+      .attr('fill', (r) => (r.tp2_hit ? 'var(--color-fg)' : 'var(--color-panel)')).attr('stroke', 'var(--color-fg-muted)').attr('stroke-width', 1.5);
+    g.append('circle').attr('cx', (r) => x(r.close_r)).attr('r', 6)
+      .attr('fill', (r) => (r.close_r >= 0 ? up : 'var(--cds-chart-status-critical)')).attr('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+    g.append('text').attr('x', W - right + 12).attr('y', 4).attr('font-size', 13).attr('font-weight', 600)
+      .attr('fill', (r) => (r.open_r >= 0 ? 'var(--color-ok)' : 'var(--color-bad)'))
+      .text((r) => window.szFmt('r', r.open_r));
+
+    const tip = document.createElement('div');
+    tip.className = 'sz-tip';
+    tip.hidden = true;
+    el.append(tip);
+    const f = (v) => d3.format('.3~f')(v);
+    g.append('rect').attr('x', 0).attr('y', -rowH / 2).attr('width', W).attr('height', rowH).attr('fill', 'transparent')
+      .on('pointermove', (ev, r) => {
+        tip.replaceChildren();
+        const h = document.createElement('div');
+        h.className = 'sz-tip-head';
+        h.textContent = `${r.ticker} · since ${d3.utcFormat('%-d %b')(new Date(r.since + 'T00:00:00Z'))}`;
+        tip.append(h);
+        [['Entry', f(r.entry)], ['Stop', `${f(r.stop)} (${window.szFmt('r', r.stop_r)})`],
+         ['TP1', `${f(r.tp1)} (${window.szFmt('r', r.tp1_r)})${r.tp1_hit ? ' · hit' : ''}`],
+         ['TP2', `${f(r.tp2)} (${window.szFmt('r', r.tp2_r)})${r.tp2_hit ? ' · hit' : ''}`],
+         ['Close', `${f(r.close)} (${window.szFmt('r', r.close_r)})`], ['Open profit', window.szFmt('r', r.open_r)]]
+          .forEach(([k, v]) => { const line = document.createElement('div'); line.textContent = `${k}: ${v}`; tip.append(line); });
+        tip.hidden = false;
+        const [mx, my] = d3.pointer(ev, el);
+        const tw = tip.offsetWidth, th = tip.offsetHeight;
+        tip.style.left = `${Math.max(0, Math.min(el.clientWidth - tw, mx + 12))}px`;
+        tip.style.top = `${Math.max(0, my - th - 8)}px`;
+      })
+      .on('pointerleave', () => { tip.hidden = true; });
+  });
+</script>
+
+<script>
+  // Watch list rows: Claude's call, chance of TP1 against the base rate, levels.
+  dash.draw('watchrows', (tbody) => {
+    const d = dash.data('watchlist');
+    const s = dash.data('run_summary');
+    tbody.replaceChildren();
+    if (d.status !== 'ok') return;
+    const base = s.status === 'ok' && s.data[0] ? Number(s.data[0].base_tp1_rate) : null;
+    const order = { TAKE: 0, WAIT: 1, SKIP: 2 };
+    const rows = d.data.slice().sort((a, b) => (a.event === 'SIGNAL' ? 0 : 1) - (b.event === 'SIGNAL' ? 0 : 1) || (order[a.call] ?? 3) - (order[b.call] ?? 3) || a.dist_z1_atr - b.dist_z1_atr);
+    const px = (v) => (v === null || v === undefined ? '—' : d3.format('.3~f')(v));
+    rows.forEach((w) => {
+      const tr = document.createElement('tr');
+      const td = (text, cls) => { const c = document.createElement('td'); if (cls) c.className = cls; c.textContent = text; tr.append(c); return c; };
+      td(w.event === 'SIGNAL' ? `${w.ticker} · buy at open` : w.ticker, 'is-tick');
+      const callTd = td('');
+      const chip = document.createElement('span');
+      chip.className = `sz-chip is-${String(w.call).toLowerCase()}`;
+      chip.textContent = w.call;
+      callTd.append(chip);
+      const hasP = typeof w.p_tp1 === 'number';
+      const pTd = td(hasP ? d3.format('.0%')(w.p_tp1) : '—');
+      const bar = document.createElement('span');
+      bar.className = 'sz-pbar';
+      bar.setAttribute('aria-hidden', 'true');
+      const fill = document.createElement('span');
+      fill.className = 'sz-pbar-fill';
+      fill.style.width = `${hasP ? Math.max(0, Math.min(1, w.p_tp1)) * 100 : 0}%`;
+      fill.style.background = dash.colors[0];
+      bar.append(fill);
+      if (base !== null) {
+        const tick = document.createElement('span');
+        tick.className = 'sz-pbar-base';
+        tick.style.left = `calc(${base * 100}% - 1px)`;
+        bar.append(tick);
+      }
+      pTd.append(bar);
+      td(px(w.close), 'is-num');
+      td((w.dist_z1_atr > 0 ? '+' : w.dist_z1_atr < 0 ? '−' : '') + Math.abs(w.dist_z1_atr).toFixed(2), 'is-num');
+      td(px(w.trigger_close), 'is-num');
+      td(px(w.max_close), 'is-num');
+      td(px(w.sl), 'is-num');
+      td(px(w.tp1), 'is-num');
+      td(w.reason, 'is-why');
+      tbody.append(tr);
+    });
+  });
+</script>
+
+<script>
+  // Shared tooltip helper: lines = [[label, value], ...]
+  window.szTip = (el) => {
+    const tip = document.createElement('div');
+    tip.className = 'sz-tip';
+    tip.hidden = true;
+    el.append(tip);
+    return {
+      show(ev, head, lines) {
+        tip.replaceChildren();
+        const h = document.createElement('div');
+        h.className = 'sz-tip-head';
+        h.textContent = head;
+        tip.append(h);
+        lines.forEach(([k, v]) => { const l = document.createElement('div'); l.textContent = `${k}: ${v}`; tip.append(l); });
+        tip.hidden = false;
+        const [mx, my] = d3.pointer(ev, el);
+        tip.style.left = `${Math.max(0, Math.min(el.clientWidth - tip.offsetWidth, mx + 12))}px`;
+        tip.style.top = `${Math.max(0, my - tip.offsetHeight - 8)}px`;
+      },
+      hide() { tip.hidden = true; },
+    };
+  };
+  window.szFail = (el, d) => {
+    if (d.status === 'error') { const p = document.createElement('p'); p.className = 'sz-note'; p.textContent = 'Failed to load'; el.append(p); }
+  };
+
+  // Watch list: how far today's close is from each buy-close range, in % of the close.
+  dash.draw('watchrange', (el) => {
+    const d = dash.data('watchlist');
+    el.replaceChildren();
+    if (d.status !== 'ok') return window.szFail(el, d);
+    if (!d.data.length) { const p = document.createElement('p'); p.className = 'sz-note'; p.textContent = 'No setups on the watch list.'; el.append(p); return; }
+    const pct = (w, v) => ((v - w.close) / w.close) * 100;
+    const rows = d.data.map((w) => {
+      const sig = w.event === 'SIGNAL';
+      const lo = w.trigger_close, hi = w.max_close ?? w.trigger_close;
+      const inside = sig || (w.close >= lo - 1e-9 && w.close <= hi + 1e-9);
+      const gap = inside ? 0 : (w.close > hi ? pct(w, hi) : pct(w, lo));
+      const label = sig ? 'Buy at open' : inside ? 'In range now' : gap < 0 ? `Needs −${Math.abs(gap).toFixed(1)}%` : `Needs +${gap.toFixed(1)}%`;
+      return { ...w, sig, inside, gap, label, lo_p: pct(w, lo), hi_p: pct(w, hi), sl_p: pct(w, w.sl), tp1_p: pct(w, w.tp1) };
+    }).sort((a, b) => Math.abs(a.gap) - Math.abs(b.gap) || a.ticker.localeCompare(b.ticker));
+    const W = el.clientWidth || 600, rowH = 40, top = 22, bottom = 28;
+    const H = top + rows.length * rowH + bottom;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
+      .attr('aria-label', 'Distance from today’s close to each buy-close range, with stop and TP1, in percent');
+    const measure = (texts, size, weight) => {
+      const g = svg.append('g');
+      const w = d3.max(texts, (t) => g.append('text').attr('font-size', size).attr('font-weight', weight).text(t).node().getComputedTextLength()) || 0;
+      g.remove();
+      return w;
+    };
+    const left = measure(rows.map((r) => r.ticker), 13, 600) + 16;
+    const right = measure(rows.map((r) => r.label), 12, 600) + 16;
+    const lo = Math.min(d3.min(rows, (r) => r.sl_p), 0), hi = Math.max(d3.max(rows, (r) => r.tp1_p), 0);
+    const x = d3.scaleLinear([lo, hi], [left, W - right]).nice();
+    const ticks = x.ticks(Math.max(3, Math.min(8, Math.floor((W - left - right) / 70))));
+    const grid = svg.append('g');
+    grid.selectAll('line').data(ticks).join('line').attr('x1', (t) => x(t)).attr('x2', (t) => x(t))
+      .attr('y1', top).attr('y2', H - bottom).attr('stroke', (t) => (t === 0 ? 'var(--cds-chart-reference)' : 'var(--cds-chart-grid)'))
+      .attr('stroke-dasharray', (t) => (t === 0 ? '4 3' : null));
+    grid.selectAll('text').data(ticks).join('text').attr('x', (t) => x(t)).attr('y', H - 8).attr('text-anchor', 'middle')
+      .attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').text((t) => (t === 0 ? '0' : (t > 0 ? '+' : '−') + Math.abs(t) + '%'));
+    svg.append('text').attr('x', x(0)).attr('y', 12).attr('text-anchor', 'middle').attr('font-size', 11)
+      .attr('fill', 'var(--color-fg-muted)').text('Today’s close');
+    const acc = dash.colors[0];
+    const g = svg.append('g').selectAll('g').data(rows).join('g').attr('transform', (r, i) => `translate(0, ${top + i * rowH + rowH / 2})`);
+    g.append('text').attr('x', left - 12).attr('y', 4).attr('text-anchor', 'end').attr('font-size', 13).attr('font-weight', 600)
+      .attr('fill', 'var(--color-fg)').text((r) => r.ticker);
+    g.append('line').attr('x1', (r) => x(r.sl_p)).attr('x2', (r) => x(r.tp1_p)).attr('stroke', 'var(--cds-chart-muted)')
+      .attr('stroke-width', 2).attr('stroke-linecap', 'round');
+    g.append('rect').attr('x', (r) => x(Math.min(r.lo_p, r.hi_p)) - (r.sig ? 3 : 0))
+      .attr('width', (r) => Math.max(6, Math.abs(x(r.hi_p) - x(r.lo_p)))).attr('y', -7).attr('height', 14).attr('rx', 3)
+      .attr('fill', acc).attr('fill-opacity', 0.3).attr('stroke', acc).attr('stroke-width', 1.5);
+    g.append('rect').attr('x', (r) => x(r.sl_p) - 1.5).attr('y', -9).attr('width', 3).attr('height', 18).attr('rx', 1)
+      .attr('fill', 'var(--cds-chart-status-critical)');
+    g.append('rect').attr('x', (r) => x(r.tp1_p) - 5).attr('y', -5).attr('width', 10).attr('height', 10).attr('rx', 1)
+      .attr('transform', (r) => `rotate(45 ${x(r.tp1_p)} 0)`).attr('fill', 'var(--color-panel)').attr('stroke', 'var(--color-fg)').attr('stroke-width', 1.5);
+    g.append('circle').attr('cx', x(0)).attr('r', 5.5).attr('fill', 'var(--color-fg)').attr('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+    g.append('text').attr('x', W - right + 12).attr('y', 4).attr('font-size', 12).attr('font-weight', 600)
+      .attr('fill', (r) => (r.inside ? 'var(--color-fg)' : 'var(--color-fg-muted)')).text((r) => r.label);
+    const tip = window.szTip(el);
+    const f = (v) => (v === null || v === undefined ? '—' : d3.format('.3~f')(v));
+    const p = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + '%';
+    g.append('rect').attr('x', 0).attr('y', -rowH / 2).attr('width', W).attr('height', rowH).attr('fill', 'transparent')
+      .on('pointermove', (ev, r) => tip.show(ev, `${r.ticker} · grade ${r.grade} · Claude ${r.call}`, [
+        ['Close', f(r.close)],
+        [r.sig ? 'Indicative entry' : 'Buy-close range', r.sig ? f(r.trigger_close) : `${f(r.trigger_close)}–${f(r.max_close)} (${p(r.lo_p)} to ${p(r.hi_p)})`],
+        ['Stop', `${f(r.sl)} (${p(r.sl_p)})`], ['TP1', `${f(r.tp1)} (${p(r.tp1_p)})`]]))
+      .on('pointerleave', () => tip.hide());
+  });
+
+  // Closed trades over the last 12 months: cumulative R by exit date, one dot per trade.
+  dash.draw('cumr', (el) => {
+    const d = dash.data('closed_trades');
+    el.replaceChildren();
+    if (d.status !== 'ok') return window.szFail(el, d);
+    const day = d3.utcParse('%Y-%m-%d');
+    const rows = d.data.map((t) => ({ ...t, ex: day(t.exit_date) })).sort((a, b) => a.ex - b.ex);
+    if (!rows.length) { const p = document.createElement('p'); p.className = 'sz-note'; p.textContent = 'No closed trades yet.'; el.append(p); return; }
+    const W = el.clientWidth || 600, H = 260, top = 16, bottom = 28, left = 44, right = 56;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
+      .attr('aria-label', 'Cumulative result in R of closed trades over the last 12 months');
+    const t0 = d3.utcDay.offset(rows[0].ex, -7), t1 = rows[rows.length - 1].ex;
+    const x = d3.scaleUtc([t0, t1], [left, W - right]);
+    const y = d3.scaleLinear([Math.min(0, d3.min(rows, (r) => r.cum_r)), Math.max(0, d3.max(rows, (r) => r.cum_r))], [H - bottom, top]).nice();
+    svg.append('g').selectAll('line').data(y.ticks(5)).join('line').attr('x1', left).attr('x2', W - right)
+      .attr('y1', (v) => y(v)).attr('y2', (v) => y(v))
+      .attr('stroke', (v) => (v === 0 ? 'var(--cds-chart-axis)' : 'var(--cds-chart-grid)'));
+    svg.append('g').selectAll('text').data(y.ticks(5)).join('text').attr('x', left - 8).attr('y', (v) => y(v) + 4)
+      .attr('text-anchor', 'end').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)')
+      .text((v) => (v === 0 ? '0' : (v > 0 ? '+' : '−') + Math.abs(v) + 'R'));
+    const months = x.ticks(d3.utcMonth.every(W < 520 ? 3 : 2));
+    svg.append('g').selectAll('text').data(months).join('text').attr('x', (m) => x(m)).attr('y', H - 8).attr('text-anchor', 'middle')
+      .attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').text((m) => d3.utcFormat(m.getUTCMonth() === 0 ? '%b %Y' : '%b')(m));
+    const go = day('2026-11-03');
+    if (go >= t0 && go <= t1) {
+      svg.append('line').attr('x1', x(go)).attr('x2', x(go)).attr('y1', top).attr('y2', H - bottom)
+        .attr('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '4 3');
+      svg.append('text').attr('x', x(go) - 6).attr('y', top + 10).attr('text-anchor', 'end').attr('font-size', 11)
+        .attr('fill', 'var(--color-fg-muted)').text('Forward record from 3 Nov');
+    }
+    const pts = [{ ex: t0, cum_r: 0 }, ...rows];
+    svg.append('path').datum(pts).attr('fill', 'none').attr('stroke', dash.colors[0]).attr('stroke-width', 2)
+      .attr('d', d3.line().curve(d3.curveStepAfter).x((p) => x(p.ex)).y((p) => y(p.cum_r)));
+    const ok = 'var(--color-ok)', bad = 'var(--cds-chart-status-critical)';
+    svg.append('g').selectAll('circle').data(rows).join('circle').attr('cx', (r) => x(r.ex)).attr('cy', (r) => y(r.cum_r))
+      .attr('r', (r) => (r.suspect ? 6 : 4)).attr('fill', (r) => (r.suspect ? 'var(--color-panel)' : r.r >= 0 ? ok : bad))
+      .attr('stroke', (r) => (r.suspect ? bad : 'var(--color-panel)')).attr('stroke-width', 2);
+    rows.filter((r) => r.suspect).forEach((r) => {
+      svg.append('text').attr('x', x(r.ex) + 10).attr('y', y(r.cum_r) - 10).attr('font-size', 11).attr('fill', 'var(--color-fg)')
+        .attr('paint-order', 'stroke').attr('stroke', 'var(--color-panel)').attr('stroke-width', 4).attr('stroke-linejoin', 'round')
+        .text(`${r.ticker} ${window.szFmt('r', r.r)}: check data`);
+    });
+    const sus = rows.filter((r) => r.suspect);
+    if (sus.length) {
+      const note = document.createElement('p');
+      note.className = 'sz-note';
+      const ex = rows[rows.length - 1].cum_r - d3.sum(sus, (r) => r.r);
+      const n = rows.length - sus.length;
+      note.textContent = `Open circle: a loss far beyond the stop, most likely a price gap from a corporate action that the free data does not adjust. Without it the total is ${window.szFmt('r', ex)} over ${n} trades (${window.szFmt('r3', ex / n)} per trade).`;
+      el.append(note);
+    }
+    const last = rows[rows.length - 1];
+    svg.append('text').attr('x', x(last.ex) + 8).attr('y', y(last.cum_r) + 4).attr('font-size', 12).attr('font-weight', 600)
+      .attr('fill', 'var(--color-fg)').text(window.szFmt('r', last.cum_r));
+    const tip = window.szTip(el);
+    const hair = svg.append('line').attr('y1', top).attr('y2', H - bottom).attr('stroke', 'var(--cds-chart-axis)').attr('visibility', 'hidden');
+    const fd = d3.utcFormat('%-d %b %Y');
+    const exitName = { SL: 'stop', TP2: 'TP2', BE: 'breakeven', RUN: 'runner stop', EOD: 'end of data' };
+    svg.append('rect').attr('x', left).attr('y', top).attr('width', W - left - right).attr('height', H - top - bottom).attr('fill', 'transparent')
+      .on('pointermove', (ev) => {
+        const [mx] = d3.pointer(ev);
+        const r = rows.reduce((a, b) => (Math.abs(x(b.ex) - mx) < Math.abs(x(a.ex) - mx) ? b : a));
+        hair.attr('x1', x(r.ex)).attr('x2', x(r.ex)).attr('visibility', 'visible');
+        tip.show(ev, `${r.ticker} · grade ${r.grade}${r.forward ? ' · forward record' : ''}`, [
+          ['Held', `${fd(day(r.entry_date))} → ${fd(r.ex)}`], ['Exit', `${exitName[r.exit] || r.exit} at ${d3.format('.3~f')(r.exit_px)}`],
+          ['Result', window.szFmt('r', r.r) + (r.suspect ? ' (gap far past the stop: likely an unadjusted corporate action)' : '')],
+          ['Running total', window.szFmt('r', r.cum_r)]]);
+      })
+      .on('pointerleave', () => { tip.hide(); hair.attr('visibility', 'hidden'); });
+  });
+
+  // Claude's calls: progress toward 50 scored trades, and calls logged by type.
+  dash.draw('callsbar', (el) => {
+    const d = dash.data('calls');
+    el.replaceChildren();
+    if (d.status !== 'ok') return window.szFail(el, d);
+    const rows = d.data, s = rows[0] || { scored_total: 0, pending_total: 0, needed: 50 };
+    const W = el.clientWidth || 360, H = 64 + rows.length * 34, left = 56, right = 150;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
+      .attr('aria-label', `${s.scored_total} of ${s.needed} trades scored, ${s.pending_total} calls pending`);
+    const total = Math.max(s.needed, s.scored_total + s.pending_total);
+    const px = d3.scaleLinear([0, total], [0, W]);
+    svg.append('rect').attr('x', 0).attr('y', 18).attr('width', W).attr('height', 14).attr('rx', 3).attr('fill', 'var(--cds-chart-grid)');
+    svg.append('rect').attr('x', px(s.scored_total)).attr('y', 18).attr('width', px(s.pending_total)).attr('height', 14)
+      .attr('fill', dash.colors[0]).attr('fill-opacity', 0.3);
+    svg.append('rect').attr('x', 0).attr('y', 18).attr('width', px(s.scored_total)).attr('height', 14).attr('rx', 3).attr('fill', dash.colors[0]);
+    svg.append('line').attr('x1', px(s.needed) - 1).attr('x2', px(s.needed) - 1).attr('y1', 14).attr('y2', 36).attr('stroke', 'var(--color-fg)').attr('stroke-width', 2);
+    svg.append('text').attr('x', 0).attr('y', 11).attr('font-size', 12).attr('fill', 'var(--color-fg)')
+      .text(`${s.scored_total} scored · ${s.pending_total} waiting for their trade to close · ${s.needed} needed`);
+    const y0 = 60, bw = W - left - right, mx = d3.max(rows, (r) => r.logged) || 1;
+    const col = { TAKE: 'var(--color-ok)', WAIT: 'var(--color-fg-muted)', SKIP: 'var(--color-bad)' };
+    const g = svg.append('g').selectAll('g').data(rows).join('g').attr('transform', (r, i) => `translate(0, ${y0 + i * 34})`);
+    g.append('text').attr('x', 0).attr('y', 13).attr('font-size', 12).attr('font-weight', 600).attr('fill', (r) => col[r.call]).text((r) => r.call);
+    g.append('rect').attr('x', left).attr('y', 2).attr('height', 14).attr('rx', 3).attr('width', (r) => Math.max(2, (r.logged / mx) * bw))
+      .attr('fill', 'var(--cds-chart-muted)');
+    g.append('text').attr('x', (r) => left + Math.max(2, (r.logged / mx) * bw) + 8).attr('y', 13).attr('font-size', 12).attr('fill', 'var(--color-fg)')
+      .text((r) => `${r.logged} logged${r.scored ? ` · ${r.scored} scored, ${window.szFmt('r', r.avg_r)} avg` : ''}`);
+  });
+</script>
+
+<script>
+  // Horizontal bars of R per trade from zero, the live setting in the accent, the rest muted.
+  window.szBars = (el, id, labelKey, live, sortKey) => {
+    const d = dash.data(id);
+    el.replaceChildren();
+    if (d.status !== 'ok') {
+      if (d.status === 'error') { const p = document.createElement('p'); p.className = 'sz-note'; p.textContent = 'Failed to load'; el.append(p); }
+      return;
+    }
+    const rows = sortKey ? d.data.slice().sort((a, b) => a[sortKey] - b[sortKey]) : d.data.slice();
+    const valKey = id === 'grade_test' ? 'avg_r' : 'net_r';
+    const W = el.clientWidth || 400, barH = 22, gap = 12, top = 4, bottom = 26;
+    const H = top + rows.length * (barH + gap) + bottom;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
+      .attr('aria-label', 'Result per trade in R');
+    const measure = (texts) => {
+      const g = svg.append('g');
+      const w = d3.max(texts, (t) => g.append('text').attr('font-size', 12).text(t).node().getComputedTextLength()) || 0;
+      g.remove();
+      return w;
+    };
+    const left = measure(rows.map((r) => r[labelKey])) + 12;
+    const valW = measure(rows.map((r) => window.szFmt('r', r[valKey]))) + 10;
+    const lo = Math.min(0, d3.min(rows, (r) => r[valKey]));
+    const hi = Math.max(0, d3.max(rows, (r) => r[valKey]));
+    const x = d3.scaleLinear([lo, hi], [left + valW, W - valW]).nice();
+    const ticks = x.ticks(4);
+    svg.append('g').selectAll('line').data(ticks).join('line')
+      .attr('x1', (t) => x(t)).attr('x2', (t) => x(t)).attr('y1', top).attr('y2', H - bottom)
+      .attr('stroke', (t) => (t === 0 ? 'var(--cds-chart-axis)' : 'var(--cds-chart-grid)')).attr('stroke-width', 1);
+    svg.append('g').selectAll('text').data(ticks).join('text')
+      .attr('x', (t) => x(t)).attr('y', H - 8).attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)')
+      .text((t) => (t === 0 ? '0' : window.szFmt('r', t).replace('.00', '')));
+    const g = svg.append('g').selectAll('g').data(rows).join('g')
+      .attr('transform', (r, i) => `translate(0, ${top + i * (barH + gap)})`);
+    g.append('text').attr('x', 0).attr('y', barH / 2 + 4).attr('font-size', 12)
+      .attr('font-weight', (r) => (r[labelKey] === live ? 600 : 400)).attr('fill', 'var(--color-fg)').text((r) => r[labelKey]);
+    g.append('rect').attr('x', (r) => x(Math.min(0, r[valKey]))).attr('y', 0)
+      .attr('width', (r) => Math.max(1, Math.abs(x(r[valKey]) - x(0)))).attr('height', barH).attr('rx', 3)
+      .attr('fill', (r) => (r[labelKey] === live ? dash.colors[0] : 'var(--cds-chart-muted)'));
+    g.append('text').attr('y', barH / 2 + 4).attr('font-size', 12).attr('fill', 'var(--color-fg)')
+      .attr('x', (r) => (r[valKey] < 0 ? x(r[valKey]) - 6 : x(r[valKey]) + 6))
+      .attr('text-anchor', (r) => (r[valKey] < 0 ? 'end' : 'start'))
+      .text((r) => window.szFmt(Math.abs(r[valKey]) < 0.01 ? 'r3' : 'r', r[valKey]));
+  };
+  dash.draw('tfbars', (el) => window.szBars(el, 'timeframe_test', 'chart', 'Daily', 'order'));
+  dash.draw('gradebars', (el) => window.szBars(el, 'grade_test', 'grades', 'A and B (live)', null));
+</script>

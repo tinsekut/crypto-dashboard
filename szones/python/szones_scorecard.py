@@ -19,6 +19,7 @@ import argparse, datetime as dt, glob, json, os
 ap = argparse.ArgumentParser()
 ap.add_argument('--root', default=os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 ap.add_argument('--window', type=int, default=5, help='calendar days after the review to look for an entry')
+ap.add_argument('--json', action='store_true', help='print the counts as JSON (used by szones_brief.py)')
 A = ap.parse_args()
 ROOT = A.root
 
@@ -68,6 +69,17 @@ def grp(name, xs):
             f'{sum(hit) / len(hit):>7.0%} {brier:>9.3f} {brier0:>9.3f}')
 
 
+if A.json:
+    import sys
+    logged = {}
+    for f in glob.glob(os.path.join(ROOT, 'reviews', '*.json')):
+        for rv in json.load(open(f)):
+            logged[rv['call']] = logged.get(rv['call'], 0) + 1
+    by = {c: [x['r'] for x in rows if x['call'] == c] for c in ('TAKE', 'SKIP', 'WAIT')}
+    print(json.dumps(dict(scored=len(rows), pending=pending, no_trade=no_trade, needed=50, logged=logged,
+                          scored_by_call={c: len(v) for c, v in by.items()},
+                          avg_r_by_call={c: (round(sum(v) / len(v), 3) if v else None) for c, v in by.items()})))
+    sys.exit(0)
 print(f'{"Group":14} {"Trades":>6} {"Avg R":>8} {"Win":>7} {"TP1":>7} {"Brier":>9} {"Base":>9}')
 print(grp('All reviewed', rows))
 for c in ('TAKE', 'SKIP', 'WAIT'):

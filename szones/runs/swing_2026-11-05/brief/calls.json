@@ -1,0 +1,29 @@
+[
+ {
+  "call": "TAKE",
+  "logged": 4,
+  "scored": 0,
+  "avg_r": null,
+  "scored_total": 0,
+  "pending_total": 18,
+  "needed": 50
+ },
+ {
+  "call": "WAIT",
+  "logged": 12,
+  "scored": 0,
+  "avg_r": null,
+  "scored_total": 0,
+  "pending_total": 18,
+  "needed": 50
+ },
+ {
+  "call": "SKIP",
+  "logged": 2,
+  "scored": 0,
+  "avg_r": null,
+  "scored_total": 0,
+  "pending_total": 18,
+  "needed": 50
+ }
+]

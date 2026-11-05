@@ -5,11 +5,13 @@
   python3 szones_brief.py --run ../runs/premarket_2026-11-04            # pre-open check
 
 Reads summary.json, positions.json and snapshots.json from the run folder, plus Claude's calls from
-reviews/<session>.json (session = the close the run analysed). Writes <run>/brief/run_summary.json,
-positions.json and watchlist.json, the three files the dashboard (CLAUDE.md section 7) reads. The
-timeframe and grade test files are fixed backtests and are not rebuilt.
+reviews/<session>.json (session = the close the run analysed), the closed trades of the evening run for
+that session (runs/swing_<session>/trades.json) and the scorecard counts. Writes <run>/brief/
+run_summary.json, positions.json, watchlist.json, closed_trades.json and calls.json, the five files the
+dashboard (CLAUDE.md section 6, Brief refresh) reads. The timeframe and grade test files are fixed
+backtests and are not rebuilt.
 """
-import argparse, json, os
+import argparse, datetime as dt, json, os, subprocess, sys
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 ap = argparse.ArgumentParser()
@@ -54,9 +56,32 @@ for s in snaps:
         reason=('BUY AT THE OPEN. ' if sig else '') + c.get('reason', 'No Claude review for this setup yet.')))
 watch.sort(key=lambda w: (w['event'] != 'SIGNAL', -(w['dist_z1_atr'] or 0)))
 
+# closed trades with entries in the last 12 months (same window as the replay figure), cumulative R by exit
+tf = os.path.join(run, 'trades.json')
+if not os.path.exists(tf):
+    tf = os.path.join(ROOT, 'runs', f"swing_{S['session']}", 'trades.json')
+D = dt.date.fromisoformat(S['session'])
+closed, cum = [], 0.0
+for t in sorted(json.load(open(tf)) if os.path.exists(tf) else [], key=lambda t: (t['exit_time'], t['time'], t['ticker'])):
+    if (D - dt.date.fromisoformat(t['time'])).days > 365:
+        continue
+    cum += t['r']
+    closed.append(dict(ticker=t['ticker'], grade=t['grade'], entry_date=t['time'], exit_date=t['exit_time'], exit=t['exit'],
+                       entry=t['entry'], exit_px=t['exit_px'], r=round(t['r'], 3), cum_r=round(cum, 3),
+                       tp1_hit=t['tp1_hit'], forward=t['time'] >= GO,
+                       suspect=t['r'] < -2))     # a stop loss is about -1R; far beyond that = unadjusted corporate action?
+
+# Claude's calls: logged by type and scored so far (szones_scorecard.py --json)
+sc = json.loads(subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'szones_scorecard.py'),
+                                '--json'], capture_output=True, text=True, check=True).stdout)
+calls_rows = [dict(call=c, logged=sc['logged'].get(c, 0), scored=sc['scored_by_call'].get(c, 0),
+                   avg_r=sc['avg_r_by_call'].get(c), scored_total=sc['scored'], pending_total=sc['pending'],
+                   needed=sc['needed']) for c in ('TAKE', 'WAIT', 'SKIP')]
+
 out = os.path.join(run, 'brief')
 os.makedirs(out, exist_ok=True)
-for name, rows in (('run_summary', summary), ('positions', positions), ('watchlist', watch)):
+for name, rows in (('run_summary', summary), ('positions', positions), ('watchlist', watch),
+                   ('closed_trades', closed), ('calls', calls_rows)):
     json.dump(rows, open(os.path.join(out, f'{name}.json'), 'w'), indent=1)
 print(f"Brief files for the {S['edition'].lower()} run on the close of {S['session']}: {out} "
-      f"({len(positions)} positions, {len(watch)} setups, {summary[0]['reviewed']} reviewed)")
+      f"({len(positions)} positions, {len(watch)} setups, {summary[0]['reviewed']} reviewed, {len(closed)} closed trades)")
