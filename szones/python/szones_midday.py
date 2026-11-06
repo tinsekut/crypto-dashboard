@@ -89,7 +89,7 @@ def morning(nm):
     if not today:
         return None
     return dict(open=today[0][1], high=max(b[2] for b in today), low=min(b[3] for b in today), last=today[-1][4],
-                last_time=(today[-1][0] + dt.timedelta(minutes=15)).strftime('%H:%M'), bars=len(today),
+                last_time=min((today[-1][0] + dt.timedelta(minutes=15)).strftime('%H:%M'), '12:30'), bars=len(today),
                 prev_close=before[-1][4] if before else None)
 
 
