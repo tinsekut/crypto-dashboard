@@ -1,0 +1,327 @@
+[
+ {
+  "code": "5183",
+  "ticker": "PCHEM",
+  "tf": "D",
+  "time": "2026-11-05",
+  "price": 4.31,
+  "dir": 1,
+  "trend": {
+   "bias": 1,
+   "htf_bull": true,
+   "struct": 1,
+   "discount": true,
+   "squeeze": false
+  },
+  "zones": {
+   "next": 3,
+   "dist_z1_atr": -0.778,
+   "z1": [
+    4.4124,
+    4.4549
+   ],
+   "z2": [
+    4.3276,
+    4.37
+   ],
+   "z3": [
+    4.2257,
+    4.2682
+   ],
+   "z4": [
+    4.09,
+    4.1324
+   ]
+  },
+  "smc": {
+   "maj": 1,
+   "msb": 4.98,
+   "idm": 4.78,
+   "leg_ext": 5.33,
+   "ext": 5.5463,
+   "bsl": 5.33,
+   "ssl": 4.04
+  },
+  "atr": 0.18617,
+  "atr_pct": 4.319,
+  "adv_rm": 21186160,
+  "stats": {
+   "n": 2,
+   "avg_r": -0.297
+  },
+  "cost_pct": 0.25,
+  "long_only": true,
+  "event": "WATCH",
+  "id": "PCHEM-2026-11-05",
+  "grade": "A",
+  "reasons": "BOS P/D",
+  "plan": {
+   "trigger_close": 4.27,
+   "max_close": 4.36,
+   "entry": "open after the signal close",
+   "sl": 3.93,
+   "tp1": 4.46,
+   "net_tp1_r": 0.527
+  }
+ },
+ {
+  "code": "0097",
+  "ticker": "VITROX",
+  "tf": "D",
+  "time": "2026-11-05",
+  "price": 10.6,
+  "dir": 1,
+  "trend": {
+   "bias": 1,
+   "htf_bull": true,
+   "struct": 1,
+   "discount": false,
+   "squeeze": false
+  },
+  "zones": {
+   "next": 1,
+   "dist_z1_atr": 0.825,
+   "z1": [
+    10.154,
+    10.2578
+   ],
+   "z2": [
+    9.9465,
+    10.0503
+   ],
+   "z3": [
+    9.6975,
+    9.8013
+   ],
+   "z4": [
+    9.3656,
+    9.4693
+   ]
+  },
+  "smc": {
+   "maj": 1,
+   "msb": 9.65,
+   "idm": 11.26,
+   "leg_ext": 11.3,
+   "ext": 12.6596,
+   "bsl": 11.3,
+   "ssl": 8.84
+  },
+  "atr": 0.414978,
+  "atr_pct": 3.915,
+  "adv_rm": 41237691,
+  "stats": {
+   "n": 5,
+   "avg_r": -0.396
+  },
+  "cost_pct": 0.25,
+  "long_only": true,
+  "event": "WATCH",
+  "id": "VITROX-2026-11-05",
+  "grade": "A",
+  "reasons": "BOS FVG",
+  "plan": {
+   "trigger_close": 10.26,
+   "max_close": 10.46,
+   "entry": "open after the signal close",
+   "sl": 9.5,
+   "tp1": 10.68,
+   "net_tp1_r": 0.519
+  }
+ },
+ {
+  "code": "3816",
+  "ticker": "MISC",
+  "tf": "D",
+  "time": "2026-11-05",
+  "price": 8.11,
+  "dir": 1,
+  "trend": {
+   "bias": 1,
+   "htf_bull": true,
+   "struct": 1,
+   "discount": true,
+   "squeeze": false
+  },
+  "zones": {
+   "next": 1,
+   "dist_z1_atr": 0.2,
+   "z1": [
+    7.9853,
+    8.0528
+   ],
+   "z2": [
+    7.8504,
+    7.9179
+   ],
+   "z3": [
+    7.6884,
+    7.7559
+   ],
+   "z4": [
+    7.4724,
+    7.5399
+   ]
+  },
+  "smc": {
+   "maj": 1,
+   "msb": 8.7,
+   "idm": null,
+   "leg_ext": 8.76,
+   "ext": 8.79708,
+   "bsl": 8.76,
+   "ssl": 7.49
+  },
+  "atr": 0.286377,
+  "atr_pct": 3.531,
+  "adv_rm": 21978663,
+  "stats": {
+   "n": 6,
+   "avg_r": -0.02
+  },
+  "cost_pct": 0.25,
+  "long_only": true,
+  "event": "WATCH",
+  "id": "MISC-2026-11-05",
+  "grade": "A",
+  "reasons": "BOS P/D",
+  "plan": {
+   "trigger_close": 8.06,
+   "max_close": 8.19,
+   "entry": "open after the signal close",
+   "sl": 7.54,
+   "tp1": 8.35,
+   "net_tp1_r": 0.519
+  }
+ },
+ {
+  "code": "5292",
+  "ticker": "UWC",
+  "tf": "D",
+  "time": "2026-11-05",
+  "price": 6.59,
+  "dir": 1,
+  "trend": {
+   "bias": 1,
+   "htf_bull": true,
+   "struct": -1,
+   "discount": true,
+   "squeeze": false
+  },
+  "zones": {
+   "next": 4,
+   "dist_z1_atr": -1.459,
+   "z1": [
+    7.0024,
+    7.0782
+   ],
+   "z2": [
+    6.8507,
+    6.9265
+   ],
+   "z3": [
+    6.6687,
+    6.7445
+   ],
+   "z4": [
+    6.426,
+    6.5018
+   ]
+  },
+  "smc": {
+   "maj": 1,
+   "msb": 6.98,
+   "idm": 7.65,
+   "leg_ext": 8.09,
+   "ext": 8.77598,
+   "bsl": 8.09,
+   "ssl": 5.99
+  },
+  "atr": 0.33454,
+  "atr_pct": 5.076,
+  "adv_rm": 29408350,
+  "stats": {
+   "n": 2,
+   "avg_r": 1.068
+  },
+  "cost_pct": 0.25,
+  "long_only": true,
+  "event": "WATCH",
+  "id": "UWC-2026-11-05",
+  "grade": "B",
+  "reasons": "P/D",
+  "plan": {
+   "trigger_close": 6.51,
+   "max_close": 6.66,
+   "entry": "open after the signal close",
+   "sl": 5.9,
+   "tp1": 6.85,
+   "net_tp1_r": 0.531
+  }
+ },
+ {
+  "code": "0225",
+  "ticker": "SFPTECH",
+  "tf": "D",
+  "time": "2026-11-05",
+  "price": 2.73,
+  "dir": 1,
+  "trend": {
+   "bias": 1,
+   "htf_bull": true,
+   "struct": 1,
+   "discount": false,
+   "squeeze": false
+  },
+  "zones": {
+   "next": 1,
+   "dist_z1_atr": -0.208,
+   "z1": [
+    2.7272,
+    2.7525
+   ],
+   "z2": [
+    2.6768,
+    2.702
+   ],
+   "z3": [
+    2.6163,
+    2.6415
+   ],
+   "z4": [
+    2.5356,
+    2.5608
+   ]
+  },
+  "smc": {
+   "maj": 1,
+   "msb": 2.45,
+   "idm": 2.96,
+   "leg_ext": 3.0,
+   "ext": 3.46968,
+   "bsl": 3.0,
+   "ssl": 2.67
+  },
+  "atr": 0.107956,
+  "atr_pct": 3.954,
+  "adv_rm": 13686403,
+  "stats": {
+   "n": 4,
+   "avg_r": 0.655
+  },
+  "cost_pct": 0.25,
+  "long_only": true,
+  "event": "WATCH",
+  "id": "SFPTECH-2026-11-05",
+  "grade": "B",
+  "reasons": "BOS",
+  "plan": {
+   "trigger_close": 2.76,
+   "max_close": 2.8,
+   "entry": "open after the signal close",
+   "sl": 2.56,
+   "tp1": 2.87,
+   "net_tp1_r": 0.515
+  }
+ }
+]

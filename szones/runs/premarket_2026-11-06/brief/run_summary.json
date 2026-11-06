@@ -1,0 +1,25 @@
+[
+ {
+  "edition": "Pre-open",
+  "date": "2026-11-05",
+  "for_open": "2026-11-06",
+  "run_time": "2026-11-06 08:12 MYT",
+  "signals_next_open": 0,
+  "open_positions": 4,
+  "position_cap": 3,
+  "closed_today": 1,
+  "forward_closed": 0,
+  "forward_total_r": 0,
+  "replay_12m_trades": 60,
+  "replay_12m_avg_r": -0.045,
+  "grades": "A and B",
+  "backtest_avg_r": 0.038,
+  "backtest_trades": 569,
+  "base_tp1_rate": 0.55,
+  "data_source": "Yahoo",
+  "counters_with_data": 57,
+  "counters_total": 57,
+  "stale": 0,
+  "reviewed": 5
+ }
+]
