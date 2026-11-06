@@ -53,6 +53,9 @@ with cf.ThreadPoolExecutor(6) as ex: list(ex.map(get, codes))
 json.dump(src, open(os.path.join(wd, 'sources.json'), 'w'), indent=1)
 print('Data sources (daily):', dict(Counter(v['used'].get('1d', 'NONE') for v in src.values())))
 missing = [c for c, v in src.items() if '1d' not in v['used']]
+adjusted = {sh[c]['name']: v['adjusted']['1d'] for c, v in src.items() if v.get('adjusted', {}).get('1d')}
+for nm, notes in adjusted.items():                 # corporate-action gaps checked against TradingView (szones_data.repair_gaps)
+    print(f'Corporate action check {nm}: ' + '; '.join(notes))
 if len(missing) > len(codes) // 2:
     sys.exit(f'ABORT: no daily data for {len(missing)} of {len(codes)} counters; no outputs written. '
              f'e.g. {src[missing[0]]["errors"]}')
@@ -180,7 +183,7 @@ json.dump(dict(edition=edition, session=str(D), for_open=str(OPEN_DAY) if a.prem
                forward_closed=len(fwd), forward_total_r=round(sum(fwd), 3), go_live=str(GO_LIVE),
                replay_12m_trades=len(yr), replay_12m_avg_r=round(sum(yr) / max(1, len(yr)), 3),
                data_source=src_used.most_common(1)[0][0], counters_with_data=len(codes) - len(missing),
-               counters_total=len(codes), stale=stale, changes=changes),
+               counters_total=len(codes), stale=stale, changes=changes, adjusted=adjusted),
           open('summary.json', 'w'), indent=1)
 json.dump(signals + watch, open('snapshots.json', 'w'), indent=1)
 if not a.premarket:

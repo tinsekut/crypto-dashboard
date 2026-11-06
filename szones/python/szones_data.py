@@ -15,6 +15,13 @@ one that returns enough clean bars wins, and the winner is recorded per counter.
 
   local      reuse <workdir>/data files already on disk (SZ_SOURCES=local for offline replays).
 
+Corporate actions (since 6 Nov 2026): Yahoo does not always adjust its daily history for bonus issues,
+splits or capital distributions (CAPITALA 24 Nov 2025: 0.945 -> 0.277; VITROX 2 May 2024: 7.45 -> 3.72).
+repair_gaps() finds any overnight gap beyond 40% in a Yahoo/EODHD daily series and checks that day on
+TradingView, whose history is adjusted: if TradingView shows no such gap, every earlier bar is scaled by
+TradingView's ratio (prices x f, volume / f); if TradingView shows the same move it is real and kept; if
+TradingView cannot be reached the gap is kept and flagged 'unverified'. fetch() reports it under 'adjusted'.
+
 Order is set by env SZ_SOURCES (default "yahoo,eodhd,tradingview").
 Hosts that must be allowed in a restricted network: query1/query2.finance.yahoo.com,
 eodhd.com, data.tradingview.com (websocket) and www.tradingview.com.
@@ -142,13 +149,57 @@ def tradingview(code, name, interval, long=False):
 
 SOURCES = {'yahoo': yahoo, 'eodhd': eodhd, 'tradingview': tradingview}
 
+GAP = 0.6       # open below 60% (or above 1/0.6) of the prior close: too big for a normal session
+
+
+def repair_gaps(doc, code, name):
+    """Adjust unadjusted corporate-action gaps in a daily doc against TradingView. Returns (doc, notes)."""
+    r = doc['chart']['result'][0]
+    q = r['indicators']['quote'][0]
+    ts = r['timestamp']
+    day = lambda t: dt.datetime.fromtimestamp(t, MYT).date()
+    idx = [i for i in range(len(ts)) if q['open'][i] is not None and q['close'][i] is not None]
+    gaps = [(i0, i1) for i0, i1 in zip(idx, idx[1:]) if not GAP <= q['open'][i1] / q['close'][i0] <= 1 / GAP]
+    if not gaps:
+        return doc, []
+    try:
+        tv = tradingview(code, name, '1d', long=True)['chart']['result'][0]
+        tq = tv['indicators']['quote'][0]
+        tvd = {day(t): (tq['open'][k], tq['close'][k]) for k, t in enumerate(tv['timestamp']) if tq['close'][k] is not None}
+    except Exception as e:              # noqa: BLE001 - keep the data, flag the gap
+        return doc, [f'{day(ts[i1])}: gap x{q["open"][i1] / q["close"][i0]:.3f} unverified (TradingView: {str(e)[:60]})'
+                     for i0, i1 in gaps]
+    notes = []
+    for i0, i1 in gaps:
+        d0, d1 = day(ts[i0]), day(ts[i1])
+        g_src = q['open'][i1] / q['close'][i0]
+        if d0 not in tvd or d1 not in tvd:
+            notes.append(f'{d1}: gap x{g_src:.3f} unverified (date not in TradingView history)')
+            continue
+        g_tv = tvd[d1][0] / tvd[d0][1]
+        if not GAP <= g_tv <= 1 / GAP:
+            notes.append(f'{d1}: gap x{g_src:.3f} kept (TradingView shows the same move, x{g_tv:.3f})')
+            continue
+        f = g_src / g_tv                # scale every bar before d1 so the day-over-day move matches TradingView
+        for k in range(i1):
+            for key in ('open', 'high', 'low', 'close'):
+                if q[key][k] is not None:
+                    q[key][k] = q[key][k] * f
+            if q.get('volume') and q['volume'][k] is not None:
+                q['volume'][k] = q['volume'][k] / f
+        notes.append(f'{d1}: gap x{g_src:.3f} adjusted, earlier bars x{f:.4f} to match TradingView')
+    if any('adjusted' in n for n in notes):
+        r.setdefault('meta', {})['adjusted'] = notes
+    return doc, notes
+
 
 def fetch(code, name, outdir, mode='15m'):
     """Write <outdir>/<code>_15m.json and _1d.json from the first source that works.
     mode='daily': only ~5 years of daily bars (the weekly bias needs >55 weeks), written as
     _1d.json and _1440m.json (the engine's daily chart file).
-    Returns {'used': {interval: source}, 'errors': {...}}."""
-    used, errors = {}, {}
+    Returns {'used': {interval: source}, 'errors': {...}} plus 'adjusted': {interval: [notes]} when
+    repair_gaps() found a corporate-action gap."""
+    used, errors, adjusted = {}, {}, {}
     long = mode == 'daily'
     plan = (('1d', 300),) if long else (('15m', MIN_15M_BARS), ('1d', MIN_1D_BARS))
     for iv, need in plan:
@@ -161,6 +212,10 @@ def fetch(code, name, outdir, mode='15m'):
                 n = _count(doc)
                 if n < need:
                     raise RuntimeError(f'only {n} bars')
+                if iv == '1d' and src in ('yahoo', 'eodhd'):
+                    doc, notes = repair_gaps(doc, code, name)
+                    if notes:
+                        adjusted[iv] = notes
                 json.dump(doc, open(os.path.join(outdir, f'{code}_{iv}.json'), 'w'))
                 if long:
                     json.dump(doc, open(os.path.join(outdir, f'{code}_1440m.json'), 'w'))
@@ -172,4 +227,4 @@ def fetch(code, name, outdir, mode='15m'):
             stale = os.path.join(outdir, f'{code}_{iv}.json')
             if os.path.exists(stale):
                 os.remove(stale)
-    return dict(used=used, errors=errors)
+    return dict(used=used, errors=errors, **({'adjusted': adjusted} if adjusted else {}))
