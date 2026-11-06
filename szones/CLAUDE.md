@@ -214,13 +214,26 @@ A daily chart cannot produce new signals overnight, so this run re-checks last e
 3. Report briefly: orders for today's open (SIGNALs; real stop/targets are re-based on the actual open), changes against the evening plan, open positions with their stops, data source and stale counters. Indicator readouts, not advice. If T is a Bursa holiday the plan simply carries to the next session; say so if you know it.
 4. Commit `runs/premarket_T/{snapshots,positions,summary,sources}.json`, `runs/premarket_T/brief/*.json` and any review file changed, push.
 
+**Mid-day check (since 6 Nov 2026, tIn asked for a mid-day analysis validating the pre-open results; weekdays 12:45 MYT, in Bursa's 12:30–14:30 lunch break; T = today):**
+
+```bash
+cd python
+python3 szones_midday.py --date T --workdir ../runs/midday_T
+```
+
+Reads the plan from `runs/premarket_T/` (else the latest `runs/swing_*` before T) and Claude's calls from `reviews/S.json`, fetches 15-minute bars for those counters only (fallback chain, about 15 minutes delayed) and checks the morning session 09:00–12:30. Signals bought at the open: actual open vs the indicative entry (in ATR), stop and TP1 re-based on the open, whether the morning touched either. Positions: stop touched (exit at the stop, or the open if it gapped below; R reported), TP1/TP2 reached, or holding with the room left above the stop. Watch list: last price against the buy-close range and whether the day is green so far ("On track" = inside the range and above the open). Prices are snapped to Bursa ticks (Yahoo intraday prices carry float noise). Nothing changes the paper record or the reviews: the evening run books signals and exits on the daily close. Writes `midday.json`, `sources.json` and `brief/midday.json`.
+1. If it ABORTs or finds no bars for T, report why (holiday or data) and stop.
+2. Upload `runs/midday_T/brief/midday.json` as an asset to the dashboard, ArtifactData `get` `datasets/midday`, `update` it pinned with `if_version` (new `source` url, `updated` = now, by "Claude, SZones mid-day check"), delete the replaced asset. Touch no other dataset.
+3. Report briefly: per position, signal and watch-list counter the status and the note; what needs attention this afternoon (stops touched, positions near the stop, watch-list setups on track to signal at the close). Indicator readouts, not advice.
+4. Commit `runs/midday_T/{midday,sources}.json` and `runs/midday_T/brief/midday.json`, push.
+
 **Brief refresh (both routines).** Dashboard "SZones Brief": https://claude.ai/artifact/Kt4NUYMt5fGiE2U3j1v1cj (Dashboard artifact type; the page reads five data files from its asset store; page source kept in `dashboard/index.html`).
 1. `python3 szones_brief.py --run <run folder>` writes `<run>/brief/{run_summary,positions,watchlist,closed_trades,calls}.json` (Claude's calls merged from `reviews/S.json`; closed trades from `runs/swing_S/trades.json`, entries in the last 12 months, with a running total; calls from `szones_scorecard.py --json`).
 2. Upload each of the five files as an asset to the dashboard, one call per file (Artifact publish with `url` = the dashboard, `asset: true`, `file_path`). Note each new `/_blob/<id>` url.
 3. ArtifactData `list` `datasets` (versions and old source urls), then one `batch` of `update`s to `datasets/run_summary`, `positions`, `watchlist`, `closed_trades`, `calls`, each pinned with `if_version`: `source` = `{kind: "file", url: <new blob url>, name: "<file>.json"}`, `updated` = `{at: <now, UTC ISO>, by: "Claude, SZones <edition> routine"}`.
 4. Delete the five replaced assets (Artifact `delete`, `url` = the dashboard, `path` = the old blob id). Never touch `datasets/timeframe_test`, `datasets/grade_test` (fixed backtests) or `files/index.html` (the page) in a routine.
 
-Dashboard sections (added 5 Nov at tIn's request for more visuals): headline tiles; open positions ladder in R; watch list "distance to buy range" chart (% from close, buy-close range, stop, TP1) plus the levels table with Claude's calls; track record (running total of closed trades over 12 months with the forward-record start marked, and Claude's calls toward the 50 needed); evidence bars (timeframe, grade filter).
+Dashboard sections (added 5 Nov at tIn's request for more visuals): headline tiles; mid-day check (6 Nov: morning low–high, open and last against stop, buy range and TP1, with status; dataset `midday`, refreshed only by the mid-day check); open positions ladder in R; watch list "distance to buy range" chart (% from close, buy-close range, stop, TP1) plus the levels table with Claude's calls; track record (running total of closed trades over 12 months with the forward-record start marked, and Claude's calls toward the 50 needed); evidence bars (timeframe, grade filter).
 
 The 15m routine (`szones_daily.py`) still works but is no longer scheduled.
 
@@ -247,7 +260,7 @@ The 15m routine (`szones_daily.py`) still works but is no longer scheduled.
 
 ## 8. Open items / next steps
 
-1. Weekday routines (section 6): 08:12 MYT pre-open check and 17:15 MYT evening run — daily swing paper record, each refreshing the SZones Brief dashboard. Data access working since 2 Nov (section 4). For EODHD, tIn adds `EODHD_API_KEY` as an environment secret.
+1. Weekday routines (section 6): 08:12 MYT pre-open check, 12:45 MYT mid-day check and 17:15 MYT evening run — daily swing paper record, each refreshing the SZones Brief dashboard. Data access working since 2 Nov (section 4). For EODHD, tIn adds `EODHD_API_KEY` as an environment secret.
 2. Collect ≥50 scored trades before judging Claude's reviews.
 3. (done 2 Nov) Manual updated to v3.3.4.
 4. (done 2 Nov) 1H with overnight holds: least bad (−0.11R net, +0.03R gross) but still negative. Daily swing tested 2 Nov: break-even (+0.003R, t = 0.10), no edge (section 3).
@@ -270,6 +283,7 @@ The 15m routine (`szones_daily.py`) still works but is no longer scheduled.
 | `requirements.txt` | PyPI dependencies: numpy, websocket-client |
 | `python/szones_daily.py` | Daily fetch + evaluate + watchlist; writes `snapshots.json` and `trades.json` |
 | `python/szones_swing.py` | Daily swing routine (scheduled): signals for the next open, positions, closed trades, watch list |
+| `python/szones_midday.py` | Mid-day check of the morning session against the pre-open plan (section 6) |
 | `python/szones_brief.py` | Builds the SZones Brief dashboard's data files from a run (section 6, Brief refresh) |
 | `python/szones_scorecard.py` | Scores Claude's reviews against the trades that follow (multi-day aware); `--json` gives counts for the dashboard |
 | `dashboard/index.html` | Source of the SZones Brief dashboard page (stored in the artifact as `files/index.html`) |

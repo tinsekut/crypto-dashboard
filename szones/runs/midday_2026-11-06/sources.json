@@ -1,0 +1,65 @@
+{
+ "SFPTECH": {
+  "used": {
+   "15m": "yahoo",
+   "1d": "yahoo"
+  },
+  "errors": {}
+ },
+ "GAMUDA": {
+  "used": {
+   "15m": "yahoo",
+   "1d": "yahoo"
+  },
+  "errors": {}
+ },
+ "FRONTKN": {
+  "used": {
+   "15m": "yahoo",
+   "1d": "yahoo"
+  },
+  "errors": {}
+ },
+ "GREATEC": {
+  "used": {
+   "15m": "yahoo",
+   "1d": "yahoo"
+  },
+  "errors": {}
+ },
+ "PCHEM": {
+  "used": {
+   "15m": "yahoo",
+   "1d": "yahoo"
+  },
+  "errors": {}
+ },
+ "MISC": {
+  "used": {
+   "15m": "yahoo",
+   "1d": "yahoo"
+  },
+  "errors": {}
+ },
+ "UWC": {
+  "used": {
+   "15m": "yahoo",
+   "1d": "yahoo"
+  },
+  "errors": {}
+ },
+ "SIME": {
+  "used": {
+   "15m": "yahoo",
+   "1d": "yahoo"
+  },
+  "errors": {}
+ },
+ "VITROX": {
+  "used": {
+   "15m": "yahoo",
+   "1d": "yahoo"
+  },
+  "errors": {}
+ }
+}

@@ -35,6 +35,8 @@
   .sz-sw.is-diamond { border-radius: 1px; transform: rotate(45deg); width: .5rem; height: .5rem; background: transparent; border: 2px solid var(--color-fg-muted); }
   .sz-sw.is-range { border-radius: 2px; width: 1rem; background: transparent; border: 1.5px solid var(--color-fg-muted); }
   .sz-sw.is-dot-fg { background: var(--color-fg); }
+  .sz-sw.is-bar { border-radius: 3px; width: 1rem; height: .375rem; background: var(--cds-chart-muted); }
+  .sz-sw.is-tick { border-radius: 0; width: 2px; height: .75rem; background: var(--color-fg); }
   .sz-sw.is-stop { border-radius: 1px; width: 3px; height: .75rem; background: var(--cds-chart-status-critical); }
   .sz-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); white-space: nowrap; font-variant-numeric: tabular-nums; z-index: 2; }
   .sz-tip-head { color: var(--cds-text-secondary); }
@@ -89,6 +91,23 @@
       <p class="sz-tile-label">Last 12 months, rules replayed</p>
       <p class="sz-tile-value sz-signed" data-draw="val" data-source="run_summary" data-field="replay_12m_avg_r" data-row="0" data-fmt="r">—</p>
       <p class="sz-tile-note">per trade over <b data-draw="val" data-source="run_summary" data-field="replay_12m_trades" data-row="0">—</b> trades · backtest <b data-draw="val" data-source="run_summary" data-field="backtest_avg_r" data-row="0" data-fmt="r3">—</b></p>
+    </div>
+  </section>
+
+  <section class="sz-section" aria-labelledby="mid-h">
+    <div class="sz-card">
+      <h2 class="sz-card-title" id="mid-h">Mid-day check</h2>
+      <p class="sz-byline" id="mid-asof">—</p>
+      <p class="sz-note">Taken in the lunch break to check the pre-open plan against the morning session. Each grey bar is the morning's low to high, the black tick is today's open and the dot the last price (green above the open, red below). The shaded box is a watch-list buy-close range, the red tick the stop and the diamond TP1. Provisional: signals and exits are booked on the daily close.</p>
+      <ul class="sz-legend" aria-label="Legend">
+        <li><span class="sz-sw is-bar"></span>Morning low–high</li>
+        <li><span class="sz-sw is-tick"></span>Open</li>
+        <li><span class="sz-sw is-dot-fg"></span>Last</li>
+        <li><span class="sz-sw is-range"></span>Buy-close range</li>
+        <li><span class="sz-sw is-stop"></span>Stop</li>
+        <li><span class="sz-sw is-diamond"></span>TP1</li>
+      </ul>
+      <div class="sz-chart" id="midday" data-draw="midday" data-source="midday"></div>
     </div>
   </section>
 
@@ -174,7 +193,7 @@
     </div>
   </section>
 
-  <p class="sz-foot">Indicator readouts from the SZones rules, not financial advice. Positions, signals and the trade history come from the latest run on Yahoo daily data; the timeframe and grade figures come from backtests on TradingView data. Every result is net of costs and measured in R, where 1R is the distance from entry to stop.</p>
+  <p class="sz-foot">Indicator readouts from the SZones rules, not financial advice. Positions, signals and the trade history come from the latest run on Yahoo daily data, and the mid-day check from Yahoo 15-minute bars (about 15 minutes delayed); the timeframe and grade figures come from backtests on TradingView data. Every result is net of costs and measured in R, where 1R is the distance from entry to stop.</p>
 </div>
 
 <script>
@@ -573,6 +592,75 @@
       .attr('fill', 'var(--cds-chart-muted)');
     g.append('text').attr('x', (r) => left + Math.max(2, (r.logged / mx) * bw) + 8).attr('y', 13).attr('font-size', 12).attr('fill', 'var(--color-fg)')
       .text((r) => `${r.logged} logged${r.scored ? ` · ${r.scored} scored, ${window.szFmt('r', r.avg_r)} avg` : ''}`);
+  });
+</script>
+
+<script>
+  // Mid-day check: the morning session (low–high, open, last) against the plan's levels, in % from the prior close.
+  dash.draw('midday', (el) => {
+    const d = dash.data('midday');
+    el.replaceChildren();
+    if (d.status !== 'ok') return window.szFail(el, d);
+    const head = document.getElementById('mid-asof');
+    const rows = d.data.filter((r) => r.prev_close);
+    if (head) head.textContent = rows.length ? `${d3.utcFormat('%a %-d %b')(new Date(rows[0].date + 'T00:00:00Z'))}, morning session to ${rows[0].as_of} MYT` : 'No mid-day check yet';
+    if (!rows.length) return;
+    const pct = (r, v) => (v === null || v === undefined ? null : ((v - r.prev_close) / r.prev_close) * 100);
+    const kindOrder = { Signal: 0, Position: 1, Watch: 2 };
+    const R = rows.map((r) => ({ ...r, lo_p: pct(r, r.low), hi_p: pct(r, r.high), op_p: pct(r, r.open), la_p: pct(r, r.last),
+      st_p: pct(r, r.stop), t1_p: pct(r, r.tp1), rlo_p: pct(r, r.lo), rhi_p: pct(r, r.hi), en_p: pct(r, r.entry) }))
+      .sort((a, b) => kindOrder[a.kind] - kindOrder[b.kind] || a.ticker.localeCompare(b.ticker));
+    const W = el.clientWidth || 600, rowH = 40, top = 22, bottom = 28, narrow = W < 520;
+    const H = top + R.length * rowH + bottom;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
+      .attr('aria-label', 'Morning session range, open and last price against stop, buy range and TP1, in percent from the previous close');
+    const measure = (texts, size, weight) => {
+      const g = svg.append('g');
+      const w = d3.max(texts, (t) => g.append('text').attr('font-size', size).attr('font-weight', weight).text(t).node().getComputedTextLength()) || 0;
+      g.remove();
+      return w;
+    };
+    const tag = (r) => (narrow || r.kind === 'Watch' ? r.ticker : r.kind === 'Signal' ? `${r.ticker} · bought` : `${r.ticker} · held`);
+    const left = measure(R.map(tag), 13, 600) + 16;
+    const right = measure(R.map((r) => r.status), 12, 600) + 16;
+    const vals = R.flatMap((r) => [r.lo_p, r.hi_p, r.st_p, r.t1_p, r.rlo_p, r.rhi_p, 0]).filter((v) => v !== null);
+    const x = d3.scaleLinear([d3.min(vals), d3.max(vals)], [left, W - right]).nice();
+    const ticks = x.ticks(Math.max(3, Math.min(8, Math.floor((W - left - right) / 70))));
+    const grid = svg.append('g');
+    grid.selectAll('line').data(ticks).join('line').attr('x1', (t) => x(t)).attr('x2', (t) => x(t)).attr('y1', top).attr('y2', H - bottom)
+      .attr('stroke', (t) => (t === 0 ? 'var(--cds-chart-reference)' : 'var(--cds-chart-grid)')).attr('stroke-dasharray', (t) => (t === 0 ? '4 3' : null));
+    grid.selectAll('text').data(ticks).join('text').attr('x', (t) => x(t)).attr('y', H - 8).attr('text-anchor', 'middle')
+      .attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').text((t) => (t === 0 ? '0' : (t > 0 ? '+' : '−') + Math.abs(t) + '%'));
+    svg.append('text').attr('x', x(0)).attr('y', 12).attr('text-anchor', 'middle').attr('font-size', 11)
+      .attr('fill', 'var(--color-fg-muted)').text('Previous close');
+    const acc = dash.colors[0];
+    const col = { ok: 'var(--color-ok)', bad: 'var(--color-bad)', warn: 'var(--color-warn)', neutral: 'var(--color-fg-muted)' };
+    const g = svg.append('g').selectAll('g').data(R).join('g').attr('transform', (r, i) => `translate(0, ${top + i * rowH + rowH / 2})`);
+    g.append('text').attr('x', left - 12).attr('y', 4).attr('text-anchor', 'end').attr('font-size', 13).attr('font-weight', 600)
+      .attr('fill', 'var(--color-fg)').text(tag);
+    g.filter((r) => r.rlo_p !== null).append('rect').attr('x', (r) => x(r.rlo_p)).attr('width', (r) => Math.max(4, x(r.rhi_p) - x(r.rlo_p)))
+      .attr('y', -9).attr('height', 18).attr('rx', 3).attr('fill', acc).attr('fill-opacity', 0.18).attr('stroke', acc).attr('stroke-width', 1.25);
+    g.append('rect').attr('x', (r) => x(r.lo_p)).attr('width', (r) => Math.max(2, x(r.hi_p) - x(r.lo_p))).attr('y', -3).attr('height', 6).attr('rx', 3)
+      .attr('fill', 'var(--cds-chart-muted)');
+    g.filter((r) => r.st_p !== null).append('rect').attr('x', (r) => x(r.st_p) - 1.5).attr('y', -10).attr('width', 3).attr('height', 20).attr('rx', 1)
+      .attr('fill', 'var(--cds-chart-status-critical)');
+    g.filter((r) => r.t1_p !== null).append('rect').attr('x', (r) => x(r.t1_p) - 5).attr('y', -5).attr('width', 10).attr('height', 10).attr('rx', 1)
+      .attr('transform', (r) => `rotate(45 ${x(r.t1_p)} 0)`).attr('fill', 'var(--color-panel)').attr('stroke', 'var(--color-fg)').attr('stroke-width', 1.5);
+    g.append('rect').attr('x', (r) => x(r.op_p) - 1).attr('y', -8).attr('width', 2).attr('height', 16).attr('fill', 'var(--color-fg)');
+    g.append('circle').attr('cx', (r) => x(r.la_p)).attr('r', 5.5).attr('fill', (r) => (r.last >= r.open ? 'var(--color-ok)' : 'var(--color-bad)'))
+      .attr('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+    g.append('text').attr('x', W - right + 12).attr('y', 4).attr('font-size', 12).attr('font-weight', 600)
+      .attr('fill', (r) => col[r.status_kind] || col.neutral).text((r) => r.status);
+    const tip = window.szTip(el);
+    const f = (v) => (v === null || v === undefined ? '—' : d3.format('.3~f')(v));
+    g.append('rect').attr('x', 0).attr('y', -rowH / 2).attr('width', W).attr('height', rowH).attr('fill', 'transparent')
+      .on('pointermove', (ev, r) => tip.show(ev, `${r.ticker} · ${r.kind.toLowerCase()} · ${r.status}`, [
+        ['Prev close', f(r.prev_close)], ['Morning', `open ${f(r.open)} · high ${f(r.high)} · low ${f(r.low)} · last ${f(r.last)} (${r.day_pct > 0 ? '+' : ''}${r.day_pct}%)`],
+        ...(r.lo !== null ? [['Buy-close range', `${f(r.lo)}–${f(r.hi)}`]] : []),
+        ...(r.entry !== null ? [['Entry', f(r.entry)]] : []),
+        ['Stop', f(r.stop)], ['TP1', f(r.tp1)], ...(r.open_r !== null ? [['Open profit', window.szFmt('r', r.open_r)]] : []),
+        ['Note', r.note]]))
+      .on('pointerleave', () => tip.hide());
   });
 </script>
 
