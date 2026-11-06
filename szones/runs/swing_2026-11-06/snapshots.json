@@ -1,0 +1,262 @@
+[
+ {
+  "code": "4863",
+  "ticker": "TM",
+  "tf": "D",
+  "time": "2026-11-06",
+  "price": 7.89,
+  "dir": 1,
+  "trend": {
+   "bias": 1,
+   "htf_bull": true,
+   "struct": 1,
+   "discount": false,
+   "squeeze": false
+  },
+  "zones": {
+   "next": 1,
+   "dist_z1_atr": 0.417,
+   "z1": [
+    7.786,
+    7.825
+   ],
+   "z2": [
+    7.708,
+    7.747
+   ],
+   "z3": [
+    7.6145,
+    7.6535
+   ],
+   "z4": [
+    7.4897,
+    7.5287
+   ]
+  },
+  "smc": {
+   "maj": 1,
+   "msb": 7.85,
+   "idm": 8.05,
+   "leg_ext": 8.18,
+   "ext": 8.538441,
+   "bsl": 8.18,
+   "ssl": 7.53
+  },
+  "atr": 0.155977,
+  "atr_pct": 1.977,
+  "adv_rm": 26218042,
+  "stats": {
+   "n": 4,
+   "avg_r": -0.145
+  },
+  "cost_pct": 0.25,
+  "long_only": true,
+  "event": "WATCH",
+  "id": "TM-2026-11-06",
+  "grade": "A",
+  "reasons": "BOS P/D",
+  "plan": {
+   "trigger_close": 7.83,
+   "max_close": 7.9,
+   "entry": "open after the signal close",
+   "sl": 7.54,
+   "tp1": 7.99,
+   "net_tp1_r": 0.484
+  }
+ },
+ {
+  "code": "7277",
+  "ticker": "DIALOG",
+  "tf": "D",
+  "time": "2026-11-06",
+  "price": 1.97,
+  "dir": 1,
+  "trend": {
+   "bias": 1,
+   "htf_bull": true,
+   "struct": 1,
+   "discount": true,
+   "squeeze": false
+  },
+  "zones": {
+   "next": 2,
+   "dist_z1_atr": -0.309,
+   "z1": [
+    1.9747,
+    1.99
+   ],
+   "z2": [
+    1.944,
+    1.9594
+   ],
+   "z3": [
+    1.9072,
+    1.9226
+   ],
+   "z4": [
+    1.8582,
+    1.8735
+   ]
+  },
+  "smc": {
+   "maj": 1,
+   "msb": 2.09,
+   "idm": null,
+   "leg_ext": 2.18,
+   "ext": 2.37158,
+   "bsl": 2.35,
+   "ssl": 1.82
+  },
+  "atr": 0.064818,
+  "atr_pct": 3.29,
+  "adv_rm": 15190506,
+  "stats": {
+   "n": 2,
+   "avg_r": -0.73
+  },
+  "cost_pct": 0.25,
+  "long_only": true,
+  "event": "WATCH",
+  "id": "DIALOG-2026-11-06",
+  "grade": "A",
+  "reasons": "BOS P/D",
+  "plan": {
+   "trigger_close": 1.96,
+   "max_close": 1.99,
+   "entry": "open after the signal close",
+   "sl": 1.84,
+   "tp1": 2.03,
+   "net_tp1_r": 0.543
+  }
+ },
+ {
+  "code": "0097",
+  "ticker": "VITROX",
+  "tf": "D",
+  "time": "2026-11-06",
+  "price": 10.12,
+  "dir": 1,
+  "trend": {
+   "bias": 1,
+   "htf_bull": true,
+   "struct": 1,
+   "discount": false,
+   "squeeze": false
+  },
+  "zones": {
+   "next": 2,
+   "dist_z1_atr": -0.315,
+   "z1": [
+    10.154,
+    10.2578
+   ],
+   "z2": [
+    9.9465,
+    10.0503
+   ],
+   "z3": [
+    9.6975,
+    9.8013
+   ],
+   "z4": [
+    9.3656,
+    9.4693
+   ]
+  },
+  "smc": {
+   "maj": 1,
+   "msb": 9.65,
+   "idm": 11.26,
+   "leg_ext": 11.3,
+   "ext": 12.6596,
+   "bsl": 11.3,
+   "ssl": 8.84
+  },
+  "atr": 0.436766,
+  "atr_pct": 4.316,
+  "adv_rm": 48840623,
+  "stats": {
+   "n": 8,
+   "avg_r": -0.506
+  },
+  "cost_pct": 0.25,
+  "long_only": true,
+  "event": "WATCH",
+  "id": "VITROX-2026-11-06",
+  "grade": "A",
+  "reasons": "BOS P/D",
+  "plan": {
+   "trigger_close": 10.06,
+   "max_close": 10.26,
+   "entry": "open after the signal close",
+   "sl": 9.26,
+   "tp1": 10.5,
+   "net_tp1_r": 0.519
+  }
+ },
+ {
+  "code": "3816",
+  "ticker": "MISC",
+  "tf": "D",
+  "time": "2026-11-06",
+  "price": 8.01,
+  "dir": 1,
+  "trend": {
+   "bias": 1,
+   "htf_bull": true,
+   "struct": 1,
+   "discount": true,
+   "squeeze": false
+  },
+  "zones": {
+   "next": 1,
+   "dist_z1_atr": -0.155,
+   "z1": [
+    7.9853,
+    8.0528
+   ],
+   "z2": [
+    7.8504,
+    7.9179
+   ],
+   "z3": [
+    7.6884,
+    7.7559
+   ],
+   "z4": [
+    7.4724,
+    7.5399
+   ]
+  },
+  "smc": {
+   "maj": 1,
+   "msb": 8.7,
+   "idm": null,
+   "leg_ext": 8.76,
+   "ext": 8.79708,
+   "bsl": 8.76,
+   "ssl": 7.49
+  },
+  "atr": 0.276636,
+  "atr_pct": 3.454,
+  "adv_rm": 22114459,
+  "stats": {
+   "n": 6,
+   "avg_r": -0.02
+  },
+  "cost_pct": 0.25,
+  "long_only": true,
+  "event": "WATCH",
+  "id": "MISC-2026-11-06",
+  "grade": "A",
+  "reasons": "BOS P/D",
+  "plan": {
+   "trigger_close": 8.06,
+   "max_close": 8.19,
+   "entry": "open after the signal close",
+   "sl": 7.56,
+   "tp1": 8.34,
+   "net_tp1_r": 0.52
+  }
+ }
+]

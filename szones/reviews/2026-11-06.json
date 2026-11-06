@@ -1,0 +1,6 @@
+[
+ {"ticker": "MISC", "event": "WATCH", "call": "TAKE", "p_tp1": 0.56, "next_move": "up", "horizon_bars": 5, "key_level": 8.06, "invalidation": 7.56, "reason": "BOS + discount, at Z1 (-0.15 ATR); needs a green close back to 8.06-8.19. TP1 8.34 is clear of the 8.70 MSB; 7.49 SSL sits just under the stop."},
+ {"ticker": "DIALOG", "event": "WATCH", "call": "TAKE", "p_tp1": 0.55, "next_move": "up", "horizon_bars": 5, "key_level": 1.96, "invalidation": 1.84, "reason": "BOS + discount, at Z2 and already inside 1.96-1.99. TP1 2.03 sits below the 2.09 MSB; 1.82 SSL just under the stop. Thin history. At base."},
+ {"ticker": "VITROX", "event": "WATCH", "call": "WAIT", "p_tp1": 0.5, "next_move": "up", "horizon_bars": 5, "key_level": 10.06, "invalidation": 9.26, "reason": "BOS, premium, inside 10.06-10.26 after a -4% day. Volatile (ATR 4.3%) and the weakest history on the list (-0.51R over 8). Below base."},
+ {"ticker": "TM", "event": "WATCH", "call": "WAIT", "p_tp1": 0.5, "next_move": "down", "horizon_bars": 8, "key_level": 7.85, "invalidation": 7.54, "reason": "BOS but premium, at the top of 7.83-7.90; TP1 7.99 is only 0.10 away and 7.53 SSL sits at the 7.54 stop. Below base."}
+]

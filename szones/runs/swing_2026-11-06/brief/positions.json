@@ -1,0 +1,44 @@
+[
+ {
+  "ticker": "SIME",
+  "since": "2026-10-15",
+  "grade": "A",
+  "entry": 2.45,
+  "stop": 2.32,
+  "tp1": 2.52,
+  "tp2": 2.68,
+  "tp1_hit": true,
+  "tp2_hit": false,
+  "close": 2.46,
+  "open_r": 0.308,
+  "inherited": true
+ },
+ {
+  "ticker": "GREATEC",
+  "since": "2026-10-15",
+  "grade": "B",
+  "entry": 2.49,
+  "stop": 2.32,
+  "tp1": 2.59,
+  "tp2": 2.93,
+  "tp1_hit": true,
+  "tp2_hit": false,
+  "close": 2.4,
+  "open_r": 0.029,
+  "inherited": true
+ },
+ {
+  "ticker": "GAMUDA",
+  "since": "2026-10-22",
+  "grade": "A",
+  "entry": 4.83,
+  "stop": 4.6,
+  "tp1": 4.96,
+  "tp2": 5.28,
+  "tp1_hit": true,
+  "tp2_hit": false,
+  "close": 4.82,
+  "open_r": 0.261,
+  "inherited": true
+ }
+]
