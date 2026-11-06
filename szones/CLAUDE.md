@@ -1,6 +1,6 @@
 # SZones — project handoff for Claude Code
 
-**As of:** Tue 3 Nov 2026, ~08:35 MYT (handoff written 2 Nov 07:36 MYT; twice-daily routines and the SZones Brief dashboard added 2 Nov evening; paper record switched to grades A and B on 3 Nov before the first forward session). Latest backtest data: Fri 30 Oct close.
+**As of:** Fri 6 Nov 2026, ~11:45 MYT (handoff written 2 Nov 07:36 MYT; pre-open/evening routines and the SZones Brief dashboard added 2 Nov; grades A and B from 3 Nov; dashboard charts 5 Nov; mid-day check 6 Nov). Latest backtest data: Fri 30 Oct close.
 **Owner:** tIn (Malaysia, Asia/Kuala_Lumpur). Trades Bursa Malaysia (Shariah-compliant only, long only) and gold.
 **Use this file as `CLAUDE.md` in the project folder.** It is the single source of truth for the new session.
 
@@ -253,8 +253,8 @@ The 15m routine (`szones_daily.py`) still works but is no longer scheduled.
 
 - Code and run history: GitHub `tinsekut/crypto-dashboard`, branch `claude/szones-handoff`, folder `szones/` (includes the vendored TradingView library).
 - Google Drive copy of the latest files: folder "SZones latest — v3.3.4 (2 Nov 2026)" (the original morning bundle stays in "SZones handoff (2 Nov 2026)"; its obsolete relay script and AI setup checklist were moved to the Drive trash on 2 Nov).
-- Dashboard "SZones Brief" (pre-open and evening editions, refreshed by both routines): https://claude.ai/artifact/Kt4NUYMt5fGiE2U3j1v1cj
-- User manual (Claude Docs): https://claude.ai/artifact/SmpGy7mJL8PmKh7GqivdyE (id d0b653aa-7795-4f40-a063-8b8afb279e65) — updated 2 Nov to **v3.3.4** (dashboard layouts, "Timing row" subsection, Layout / Show timing estimates in the settings table, v3.3.3 defaults), with the sections "Test results (2 Nov 2026)" (timeframes, daily grade filter, gold) and "Daily swing routine" (grades A and B since 3 Nov; rules, the twice-daily schedule 08:12 + 17:15 MYT, evening report, the SZones Brief dashboard, Claude's review, TradingView settings to mirror it; schedule and dashboard added 2 Nov evening). Daily loss limit confirmed by tIn on 2 Nov: 2 consecutive losses or −3R, no weekly cap.
+- Dashboard "SZones Brief" (pre-open and evening editions plus the mid-day check card, refreshed by the three routines): https://claude.ai/artifact/Kt4NUYMt5fGiE2U3j1v1cj
+- User manual (Claude Docs): https://claude.ai/artifact/SmpGy7mJL8PmKh7GqivdyE (id d0b653aa-7795-4f40-a063-8b8afb279e65) — updated 2 Nov to **v3.3.4** (dashboard layouts, "Timing row" subsection, Layout / Show timing estimates in the settings table, v3.3.3 defaults), with the sections "Test results (2 Nov 2026)" (timeframes, daily grade filter, gold) and "Daily swing routine" (grades A and B since 3 Nov; rules, the schedule 08:12 + 12:45 + 17:15 MYT, evening report, "The mid-day check" with its statuses (6 Nov), the SZones Brief dashboard parts incl. mid-day check and track record, Claude's review, TradingView settings to mirror it). Daily loss limit confirmed by tIn on 2 Nov: 2 consecutive losses or −3R, no weekly cap.
 
 ---
 
